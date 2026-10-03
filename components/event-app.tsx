@@ -1,0 +1,2375 @@
+"use client"
+
+import { useState } from "react"
+
+type Role = "cliente" | "organizador" | "administrador" | "marketing"
+type IconName = "arrow" | "bell" | "calendar" | "camera" | "chart" | "check" | "chevron" | "clock" | "download" | "eye" | "filter" | "grid" | "heart" | "home" | "map" | "menu" | "plus" | "qr" | "search" | "settings" | "spark" | "ticket" | "users" | "x"
+
+const heroPhoto =
+  "/images/hero.jpg"
+
+const eventPhotos = [
+  heroPhoto,
+  "/images/event-2.jpg",
+  "/images/event-3.jpg",
+]
+
+function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
+  const paths: Record<IconName, React.ReactNode> = {
+    arrow: (
+      <>
+        <path d="M5 12h14M13 6l6 6-6 6" />
+      </>
+    ),
+    bell: (
+      <>
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+        <path d="M10 21h4" />
+      </>
+    ),
+    calendar: (
+      <>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M16 3v4M8 3v4M3 10h18" />
+      </>
+    ),
+    camera: (
+      <>
+        <path d="M14.5 4 16 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3l1.5-3z" />
+        <circle cx="12" cy="13" r="3" />
+      </>
+    ),
+    chart: (
+      <>
+        <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
+      </>
+    ),
+    check: <path d="m5 12 4 4L19 6" />,
+    chevron: <path d="m9 18 6-6-6-6" />,
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M12 3v12m-4-4 4 4 4-4M4 20h16" />
+      </>
+    ),
+    eye: (
+      <>
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12" />
+        <circle cx="12" cy="12" r="2.5" />
+      </>
+    ),
+    filter: <path d="M3 5h18l-7 8v5l-4 2v-7z" />,
+    grid: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </>
+    ),
+    heart: (
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8z" />
+    ),
+    home: (
+      <>
+        <path d="m3 11 9-8 9 8" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6" />
+      </>
+    ),
+    map: (
+      <>
+        <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
+        <path d="M9 3v15M15 6v15" />
+      </>
+    ),
+    menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+    plus: <path d="M12 5v14M5 12h14" />,
+    qr: (
+      <>
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+        <path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20h2" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </>
+    ),
+    settings: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z" />
+      </>
+    ),
+    spark: (
+      <>
+        <path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
+        <path d="m19 15 .7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z" />
+      </>
+    ),
+    ticket: (
+      <>
+        <path d="M3 7h18v4a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z" />
+        <path d="M13 7v11" />
+      </>
+    ),
+    users: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 20v-2a5 5 0 0 1 10 0v2M16 5a3 3 0 0 1 0 6M16 14a5 5 0 0 1 5 5v1" />
+      </>
+    ),
+    x: <path d="m6 6 12 12M18 6 6 18" />,
+  }
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  )
+}
+
+function Logo({ light = false }: { light?: boolean }) {
+  return (
+    <div className={`brand ${light ? "brand-light" : ""}`}>
+      <img
+        src="/images/coca-cola-logo.svg"
+        alt="Coca-Cola"
+      />
+      <span>
+        Event
+        <br />
+        Intelligence
+      </span>
+    </div>
+  )
+}
+
+function Button({
+  children,
+  kind = "primary",
+  icon,
+  onClick,
+  type = "button",
+  disabled = false,
+}: {
+  children: React.ReactNode
+  kind?: "primary" | "secondary" | "ghost" | "dark"
+  icon?: IconName
+  onClick?: () => void
+  type?: "button" | "submit"
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type={type}
+      className={`btn btn-${kind}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+      {icon && <Icon name={icon} size={18} />}
+    </button>
+  )
+}
+
+function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode
+  tone?: "red" | "green" | "yellow" | "neutral" | "dark"
+}) {
+  return <span className={`badge badge-${tone}`}>{children}</span>
+}
+
+function QR({ small = false }: { small?: boolean }) {
+  const cells = [
+    0, 1, 2, 4, 5, 6, 8, 10, 12, 13, 14, 16, 17, 18, 20, 22, 24, 25, 26, 28, 30,
+    32, 33, 34, 36, 38, 40, 41, 42, 44, 46, 48, 49, 50, 52, 53, 54, 56, 58, 60,
+    62, 64, 65, 66, 68, 70, 72, 73, 74, 76, 78, 80,
+  ]
+  return (
+    <div
+      className={`qr ${small ? "qr-small" : ""}`}
+      aria-label="Código QR de demostración"
+    >
+      {Array.from({ length: 81 }, (_, i) => (
+        <i
+          key={i}
+          className={
+            cells.includes(i) || (i * 7 + (i % 5)) % 11 < 3 ? "on" : ""
+          }
+        />
+      ))}
+    </div>
+  )
+}
+
+const events = [
+  {
+    title: "Coca-Cola Experience 2026",
+    type: "Experiencia de marca",
+    date: "18 ABR",
+    time: "16:00",
+    place: "Fexpocruz · Santa Cruz",
+    price: "GRATIS",
+    promo: "Muestra gratis",
+    spots: 48,
+    image: eventPhotos[0],
+  },
+  {
+    title: "Ritmo Urbano Sessions",
+    type: "Concierto",
+    date: "26 ABR",
+    time: "19:30",
+    place: "Teatro al Aire Libre · La Paz",
+    price: "Bs 120",
+    promo: "2×1",
+    spots: 86,
+    image: eventPhotos[1],
+  },
+  {
+    title: "Copa Coca-Cola Fan Zone",
+    type: "Deportivo",
+    date: "03 MAY",
+    time: "14:00",
+    place: "Estadio Félix Capriles · Cochabamba",
+    price: "GRATIS",
+    promo: "Cupón de bienvenida",
+    spots: 124,
+    image: eventPhotos[2],
+  },
+]
+
+function ClientNavbar({
+  onLogin,
+  onRole,
+}: {
+  onLogin: (mode: "login" | "register") => void
+  onRole: (r: Role) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <header className="client-nav">
+      <Logo />
+      <nav>
+        <a href="#eventos">Eventos</a>
+        <a href="#social">Redes sociales</a>
+      </nav>
+      <div className="nav-actions">
+        <Button kind="ghost" onClick={() => onLogin("login")}>
+          Iniciar sesión
+        </Button>
+        <Button onClick={() => onLogin("register")}>Crear cuenta</Button>
+      </div>
+      <button
+        className="mobile-menu"
+        onClick={() => setOpen(!open)}
+        aria-label="Abrir menú"
+      >
+        <Icon name={open ? "x" : "menu"} />
+      </button>
+      {open && (
+        <div className="mobile-nav">
+          <a href="#eventos">Eventos</a>
+          <a href="#social">Redes sociales</a>
+          <Button onClick={() => onLogin("login")}>Iniciar sesión</Button>
+          <button onClick={() => onRole("organizador")}>
+            Vista organizador
+          </button>
+        </div>
+      )}
+    </header>
+  )
+}
+
+function EventCard({
+  event,
+  onDetail,
+}: {
+  event: typeof events[number]
+  onDetail: () => void
+}) {
+  return (
+    <article className="event-card">
+      <div className="event-image">
+        <img
+          src={event.image}
+          alt={`${event.title}, público disfrutando el evento`}
+        />
+        <Badge tone="red">{event.promo}</Badge>
+        <button className="heart-btn" aria-label="Guardar evento">
+          <Icon name="heart" />
+        </button>
+      </div>
+      <div className="event-content">
+        <div className="event-date">
+          <strong>{event.date.split(" ")[0]}</strong>
+          <span>{event.date.split(" ")[1]}</span>
+        </div>
+        <div className="event-copy">
+          <span className="eyebrow">{event.type}</span>
+          <h3>{event.title}</h3>
+          <p>
+            <Icon name="clock" size={15} /> {event.time} · {event.place}
+          </p>
+          <div className="event-bottom">
+            <div>
+              <strong>{event.price}</strong>
+              <span>{event.spots} cupos disponibles</span>
+            </div>
+            <Button kind="dark" onClick={onDetail} icon="arrow">
+              Ver detalle
+            </Button>
+          </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function EventDetail({
+  onClose,
+  onJoin,
+}: {
+  onClose: () => void
+  onJoin: () => void
+}) {
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div className="detail-modal" onMouseDown={(e) => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose} aria-label="Cerrar">
+          <Icon name="x" />
+        </button>
+        <div className="detail-hero">
+          <img src={heroPhoto} alt="Concierto de Coca-Cola Experience 2026" />
+          <div>
+            <Badge tone="red">EXPERIENCIA DE MARCA</Badge>
+            <h2>
+              Coca-Cola
+              <br />
+              Experience 2026
+            </h2>
+            <p>
+              Una tarde para descubrir nuevos sabores, música en vivo y
+              experiencias creadas para compartir.
+            </p>
+          </div>
+        </div>
+        <div className="detail-layout">
+          <main>
+            <section>
+              <span className="section-kicker">SOBRE EL EVENTO</span>
+              <h3>Vive la experiencia desde adentro</h3>
+              <p>
+                Conectamos a nuestra comunidad con el universo Coca-Cola a
+                través de música, sabor y momentos memorables. El objetivo es
+                conocer tus preferencias y construir experiencias que disfrutes
+                aún más.
+              </p>
+            </section>
+            <section>
+              <span className="section-kicker">CRONOGRAMA</span>
+              <div className="timeline">
+                {[
+                  [
+                    "16:00",
+                    "Apertura y check-in",
+                    "Recibe tu pulsera y explora el espacio.",
+                  ],
+                  [
+                    "17:00",
+                    "Laboratorio de sabores",
+                    "Degustación guiada de Original, Zero y Cherry.",
+                  ],
+                  [
+                    "19:00",
+                    "Ritmo Urbano",
+                    "Show en vivo y dinámica de premios.",
+                  ],
+                  [
+                    "21:30",
+                    "Cierre y beneficios",
+                    "Canjea tu cupón antes de salir.",
+                  ],
+                ].map((x) => (
+                  <div key={x[0]}>
+                    <time>{x[0]}</time>
+                    <i />
+                    <span>
+                      <strong>{x[1]}</strong>
+                      <small>{x[2]}</small>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <span className="section-kicker">ACTIVIDADES</span>
+              <div className="activity-grid">
+                {[
+                  ["spark", "Laboratorio de sabores"],
+                  ["camera", "Photocall 360°"],
+                  ["ticket", "Reto y premios"],
+                  ["heart", "Encuesta express"],
+                ].map(([icon, label]) => (
+                  <div key={label}>
+                    <Icon name={icon as IconName} />
+                    <strong>{label}</strong>
+                    <span>Escanea, participa y suma beneficios.</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </main>
+          <aside className="booking-card">
+            <Badge tone="green">GRATIS</Badge>
+            <h3>Reserva tu lugar</h3>
+            <div>
+              <Icon name="calendar" />
+              <span>
+                <strong>Sábado, 18 de abril</strong>
+                <small>16:00 — 22:00</small>
+              </span>
+            </div>
+            <div>
+              <Icon name="map" />
+              <span>
+                <strong>Fexpocruz</strong>
+                <small>Santa Cruz de la Sierra</small>
+              </span>
+            </div>
+            <div className="capacity">
+              <span>
+                <b>48</b> cupos disponibles
+              </span>
+              <div>
+                <i />
+              </div>
+            </div>
+            <Button onClick={onJoin} icon="arrow">
+              Inscribirme ahora
+            </Button>
+            <small>Entrada personal. Recibirás tu QR al confirmar.</small>
+          </aside>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AuthModal({
+  mode: initialMode,
+  onClose,
+  onDone,
+}: {
+  mode: "login" | "register"
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode)
+  const [step, setStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    window.setTimeout(() => {
+      setLoading(false)
+      if (mode === "register" && step < 3) setStep(step + 1)
+      else onDone()
+    }, 650)
+  }
+  return (
+    <div className="modal-backdrop auth-backdrop">
+      <div className="auth-modal">
+        <div className="auth-visual">
+          <Logo light />
+          <div>
+            <span>
+              EVENTOS QUE
+              <br />
+              SE SIENTEN.
+            </span>
+            <p>Experiencias que se convierten en momentos para recordar.</p>
+          </div>
+          <small>Medir. Entender. Mejorar cada experiencia.</small>
+        </div>
+        <form onSubmit={submit} className="auth-form">
+          <button
+            className="modal-close"
+            onClick={onClose}
+            type="button"
+            aria-label="Cerrar"
+          >
+            <Icon name="x" />
+          </button>
+          {mode === "register" && (
+            <>
+              <span className="form-step">PASO {step} DE 3</span>
+              <div className="progress">
+                <i style={{ width: `${step * 33.33}%` }} />
+              </div>
+            </>
+          )}
+          <h2>
+            {mode === "login"
+              ? "Bienvenido de nuevo"
+              : mode === "forgot"
+                ? "Recupera tu acceso"
+                : step === 1
+                  ? "Crea tu cuenta"
+                  : step === 2
+                    ? "Cuéntanos sobre ti"
+                    : "Ya casi terminamos"}
+          </h2>
+          <p>
+            {mode === "login"
+              ? "Tus entradas, cupones y experiencias están aquí."
+              : mode === "forgot"
+                ? "Te enviaremos un código de 6 dígitos."
+                : "Personaliza tu experiencia Coca-Cola."}
+          </p>
+          {mode === "login" && (
+            <>
+              <Field
+                label="Correo o celular"
+                type="email"
+                placeholder="nombre@correo.com"
+                required
+              />
+              <Field
+                label="Contraseña"
+                type="password"
+                placeholder="Mínimo 8 caracteres"
+                required
+              />
+              <div className="form-inline">
+                <label>
+                  <input type="checkbox" /> Recordarme
+                </label>
+                <button type="button" onClick={() => setMode("forgot")}>
+                  Olvidé mi contraseña
+                </button>
+              </div>
+            </>
+          )}
+          {mode === "forgot" && (
+            <>
+              <Field
+                label="Correo o celular"
+                type="email"
+                placeholder="nombre@correo.com"
+                required
+              />
+              <div className="info-box">
+                Usaremos el canal asociado a tu cuenta. El código vence en 10
+                minutos.
+              </div>
+            </>
+          )}
+          {mode === "register" && step === 1 && (
+            <div className="field-grid">
+              <Field label="Nombre" placeholder="Ej. Valeria" required />
+              <Field label="Apellido" placeholder="Ej. Rojas" required />
+              <Field
+                label="Correo electrónico"
+                type="email"
+                placeholder="nombre@correo.com"
+                help="Te enviaremos tu entrada aquí"
+                required
+              />
+              <Field
+                label="Celular"
+                type="tel"
+                placeholder="+591 700 00000"
+                help="Lo usaremos para WhatsApp"
+                required
+              />
+              <Field
+                label="Contraseña"
+                type="password"
+                placeholder="8+ caracteres"
+                required
+              />
+              <Field
+                label="Confirmar contraseña"
+                type="password"
+                placeholder="Repite tu contraseña"
+                required
+              />
+            </div>
+          )}
+          {mode === "register" && step === 2 && (
+            <>
+              <Field
+                label="Ciudad"
+                kind="select"
+                options={["Santa Cruz", "La Paz", "Cochabamba", "Sucre"]}
+                required
+              />
+              <fieldset>
+                <legend>
+                  Rango de edad <b>*</b>
+                </legend>
+                <div className="chip-row">
+                  {["13–17", "18–24", "25–34", "35–44", "45–54", "55+"].map(
+                    (x, i) => (
+                      <label className={i === 2 ? "selected" : ""} key={x}>
+                        <input
+                          type="radio"
+                          name="age"
+                          defaultChecked={i === 2}
+                        />
+                        {x}
+                      </label>
+                    ),
+                  )}
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend>
+                  Preferencias de producto <b>*</b>
+                </legend>
+                <div className="preference-grid">
+                  {[
+                    "Original",
+                    "Zero Sin Azúcar",
+                    "Light",
+                    "Sprite",
+                    "Fanta",
+                    "Aguas",
+                  ].map((x, i) => (
+                    <label className={i < 2 ? "selected" : ""} key={x}>
+                      <input type="checkbox" defaultChecked={i < 2} />
+                      <span>{x.slice(0, 2)}</span>
+                      {x}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </>
+          )}
+          {mode === "register" && step === 3 && (
+            <>
+              <Field
+                label="¿Cómo te enteraste?"
+                kind="select"
+                options={[
+                  "Redes sociales",
+                  "Código QR",
+                  "Amigo o familiar",
+                  "Punto de venta",
+                  "Publicidad",
+                  "Evento anterior",
+                ]}
+                required
+              />
+              <div className="promo-field">
+                <Field label="Código promocional" placeholder="EXPERIENCE26" />
+                <Button kind="secondary">Validar</Button>
+              </div>
+              <label className="check-card">
+                <input type="checkbox" /> Quiero recibir promociones y novedades
+                por correo, WhatsApp o notificaciones.
+              </label>
+              <label className="check-card">
+                <input type="checkbox" required /> Acepto los términos y la
+                política de privacidad. <b>*</b>
+              </label>
+            </>
+          )}
+          <Button
+            type="submit"
+            disabled={loading}
+            icon={!loading ? "arrow" : undefined}
+          >
+            {loading
+              ? "Procesando..."
+              : mode === "login"
+                ? "Iniciar sesión"
+                : mode === "forgot"
+                  ? "Enviar código"
+                  : step < 3
+                    ? "Siguiente"
+                    : "Crear mi cuenta"}
+          </Button>
+          {mode !== "forgot" && (
+            <div className="switch-auth">
+              {mode === "login"
+                ? "¿Aún no tienes cuenta?"
+                : "¿Ya tienes una cuenta?"}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(mode === "login" ? "register" : "login")
+                  setStep(1)
+                }}
+              >
+                {mode === "login" ? "Crear cuenta" : "Iniciar sesión"}
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  required,
+  placeholder,
+  type = "text",
+  help,
+  kind,
+  options,
+  error,
+  defaultValue,
+}: {
+  label: string
+  required?: boolean
+  placeholder?: string
+  type?: string
+  help?: string
+  kind?: "select" | "textarea"
+  options?: string[]
+  error?: string
+  defaultValue?: string
+}) {
+  return (
+    <label className={`field ${error ? "field-error" : ""}`}>
+      <span>
+        {label} {required && <b>*</b>}
+      </span>
+      {kind === "select" ? (
+        <select required={required} defaultValue={defaultValue}>
+          {(options || []).map((x) => (
+            <option key={x}>{x}</option>
+          ))}
+        </select>
+      ) : kind === "textarea" ? (
+        <textarea
+          placeholder={placeholder}
+          defaultValue={defaultValue}
+          required={required}
+        />
+      ) : (
+        <input
+          type={type}
+          placeholder={placeholder}
+          required={required}
+          defaultValue={defaultValue}
+        />
+      )}
+      {error ? <small>{error}</small> : help && <small>{help}</small>}
+    </label>
+  )
+}
+
+function TicketScreen({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-backdrop">
+      <div className="ticket-modal">
+        <button className="modal-close" onClick={onClose}>
+          <Icon name="x" />
+        </button>
+        <div className="success-mark">
+          <Icon name="check" size={32} />
+        </div>
+        <span className="section-kicker">INSCRIPCIÓN CONFIRMADA</span>
+        <h2>
+          Tu próxima experiencia
+          <br />
+          ya está en camino.
+        </h2>
+        <div className="digital-ticket">
+          <div className="ticket-red">
+            <Logo light />
+            <span>ENTRADA DIGITAL</span>
+            <h3>
+              Coca-Cola
+              <br />
+              Experience 2026
+            </h3>
+            <div>
+              <b>18</b>
+              <span>
+                ABR
+                <br />
+                16:00
+              </span>
+            </div>
+          </div>
+          <div className="ticket-code">
+            <QR />
+            <strong>Valeria Rojas</strong>
+            <span>Ticket #CCE26-004812</span>
+            <small>Fexpocruz · Santa Cruz</small>
+          </div>
+        </div>
+        <p>
+          Presenta este QR al ingresar. El equipo lo escaneará para registrar tu
+          check-in y hora de llegada.
+        </p>
+        <div className="ticket-actions">
+          <Button icon="download">Descargar</Button>
+          <Button kind="secondary" icon="calendar">
+            Agregar a Wallet
+          </Button>
+          <Button kind="ghost">Enviar por WhatsApp</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Landing({ onRole }: { onRole: (r: Role) => void }) {
+  const [detail, setDetail] = useState(false)
+  const [auth, setAuth] = useState<"login" | "register" | null>(null)
+  const [ticket, setTicket] = useState(false)
+  const join = () => {
+    setDetail(false)
+    setAuth("register")
+  }
+  return (
+    <div className="landing">
+      <ClientNavbar onLogin={setAuth} onRole={onRole} />
+      <main>
+        <section className="hero">
+          <div className="hero-copy">
+            <Badge tone="dark">PRÓXIMA EXPERIENCIA · 18 ABRIL</Badge>
+            <h1>
+              Donde cada
+              <br />
+              momento <em>cuenta.</em>
+            </h1>
+            <p>
+              Descubre eventos, conecta con sabores y vive experiencias que
+              querrás compartir.
+            </p>
+            <Button
+              kind="dark"
+              onClick={() =>
+                document.querySelector("#eventos")?.scrollIntoView()
+              }
+              icon="arrow"
+            >
+              Explorar eventos
+            </Button>
+            <div className="countdown">
+              <span>
+                <b>12</b>DÍAS
+              </span>
+              <i>:</i>
+              <span>
+                <b>08</b>HORAS
+              </span>
+              <i>:</i>
+              <span>
+                <b>34</b>MIN
+              </span>
+            </div>
+          </div>
+          <div className="hero-image">
+            <img
+              src={heroPhoto}
+              alt="Público levantando las manos en un concierto"
+            />
+            <div className="hero-caption">
+              <span>01 / 03</span>
+              <strong>Coca-Cola Experience 2026</strong>
+              <small>Santa Cruz · Fexpocruz</small>
+            </div>
+          </div>
+        </section>
+        <section className="events-section" id="eventos">
+          <div className="section-head">
+            <div>
+              <span className="section-kicker">ENCUENTRA TU PRÓXIMO PLAN</span>
+              <h2>
+                Experiencias para vivir
+                <br />y compartir.
+              </h2>
+            </div>
+            <p>
+              Desde festivales hasta activaciones únicas. Elige tu próxima
+              historia.
+            </p>
+          </div>
+          <div className="filter-bar">
+            <div className="search-box">
+              <Icon name="search" />
+              <input placeholder="Buscar eventos..." />
+            </div>
+            <div className="filter-chips">
+              {[
+                "Todos",
+                "Conciertos",
+                "Experiencias",
+                "Deportivos",
+                "Gratis",
+              ].map((x, i) => (
+                <button className={i === 0 ? "active" : ""} key={x}>
+                  {x}
+                </button>
+              ))}
+            </div>
+            <button className="filter-button">
+              <Icon name="filter" /> Filtros
+            </button>
+            <button className="icon-button">
+              <Icon name="grid" />
+            </button>
+          </div>
+          <div className="event-grid">
+            {events.map((e) => (
+              <EventCard
+                key={e.title}
+                event={e}
+                onDetail={() => setDetail(true)}
+              />
+            ))}
+          </div>
+          <Button kind="secondary" icon="arrow">
+            Ver todos los eventos
+          </Button>
+        </section>
+        <section className="live-experience">
+          <div>
+            <span className="section-kicker">
+              TU EXPERIENCIA, EN TU CELULAR
+            </span>
+            <h2>
+              Escanea.
+              <br />
+              Participa.
+              <br />
+              <em>Gana.</em>
+            </h2>
+            <p>
+              En cada evento encontrarás puntos QR para descubrir sabores,
+              participar en retos y desbloquear beneficios exclusivos.
+            </p>
+            <div className="steps">
+              {[
+                ["01", "Escanea el QR"],
+                ["02", "Vive la actividad"],
+                ["03", "Recibe beneficios"],
+              ].map((x) => (
+                <span key={x[0]}>
+                  <b>{x[0]}</b>
+                  {x[1]}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="phone-mockup">
+            <div className="phone-top">
+              <Logo light />
+              <Icon name="bell" />
+            </div>
+            <span>HOLA, VALERIA</span>
+            <h3>
+              ¿Lista para
+              <br />
+              participar?
+            </h3>
+            <div className="scan-frame">
+              <i />
+              <i />
+              <i />
+              <i />
+              <Icon name="qr" size={72} />
+            </div>
+            <Button>Escanear actividad</Button>
+            <small>Apunta tu cámara al código QR</small>
+          </div>
+        </section>
+        <section className="social-section" id="social">
+          <div className="section-head">
+            <div>
+              <span className="section-kicker">SÍGUENOS</span>
+              <h2>
+                La chispa sigue
+                <br />
+                en tus redes.
+              </h2>
+            </div>
+            <div className="social-links">
+              {["Instagram", "TikTok", "YouTube", "Facebook", "X"].map((x) => (
+                <button key={x}>
+                  {x}
+                  <Icon name="arrow" />
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="social-mosaic">
+            {eventPhotos.concat([heroPhoto]).map((x, i) => (
+              <div key={i}>
+                <img src={x} alt="Comunidad Coca-Cola en eventos" />
+                <span>@cocacola_bo</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+      <footer>
+        <Logo light />
+        <p>
+          Medir. Entender.
+          <br />
+          Mejorar cada experiencia.
+        </p>
+        <div>
+          <strong>EXPLORA</strong>
+          <a href="#eventos">Eventos</a>
+          <a href="#social">Redes sociales</a>
+          <a href="#inicio">Mis entradas</a>
+        </div>
+        <div>
+          <strong>INFORMACIÓN</strong>
+          <a href="#contacto">Contacto</a>
+          <a href="#privacidad">Privacidad</a>
+          <a href="#terminos">Términos y condiciones</a>
+        </div>
+        <small>
+          © 2026 The Coca-Cola Company. Todos los derechos reservados.
+        </small>
+      </footer>
+      <RoleSwitcher role="cliente" onRole={onRole} />
+      {detail && <EventDetail onClose={() => setDetail(false)} onJoin={join} />}
+      {auth && (
+        <AuthModal
+          mode={auth}
+          onClose={() => setAuth(null)}
+          onDone={() => {
+            setAuth(null)
+            setTicket(true)
+          }}
+        />
+      )}
+      {ticket && <TicketScreen onClose={() => setTicket(false)} />}
+    </div>
+  )
+}
+
+const navs: Record<Exclude<Role, "cliente">, {
+  label: string
+  icon: IconName
+}[]> = {
+  organizador: [
+    { label: "Vista general", icon: "home" },
+    { label: "Mis eventos", icon: "calendar" },
+    { label: "Participantes", icon: "users" },
+    { label: "Check-in QR", icon: "qr" },
+    { label: "Actividades", icon: "spark" },
+    { label: "Degustaciones", icon: "heart" },
+    { label: "Encuestas", icon: "chart" },
+    { label: "Observaciones", icon: "eye" },
+  ],
+  administrador: [
+    { label: "Vista general", icon: "home" },
+    { label: "Eventos", icon: "calendar" },
+    { label: "Usuarios y roles", icon: "users" },
+    { label: "Participantes", icon: "users" },
+    { label: "Productos", icon: "heart" },
+    { label: "Campañas", icon: "spark" },
+    { label: "Indicadores", icon: "chart" },
+    { label: "Automatizaciones", icon: "settings" },
+    { label: "Reportes", icon: "download" },
+    { label: "Integraciones", icon: "grid" },
+    { label: "Power BI", icon: "chart" },
+  ],
+  marketing: [
+    { label: "Resumen ejecutivo", icon: "home" },
+    { label: "Indicadores", icon: "chart" },
+    { label: "Embudo", icon: "filter" },
+    { label: "Productos", icon: "heart" },
+    { label: "Satisfacción y NPS", icon: "spark" },
+    { label: "Segmentación", icon: "users" },
+    { label: "Mapa de asistentes", icon: "map" },
+    { label: "Promociones", icon: "ticket" },
+    { label: "Comparar eventos", icon: "grid" },
+    { label: "Insights IA", icon: "spark" },
+    { label: "Reporte ejecutivo", icon: "download" },
+    { label: "Power BI", icon: "chart" },
+  ],
+}
+
+function RoleSwitcher({
+  role,
+  onRole,
+}: {
+  role: Role
+  onRole: (r: Role) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="role-switcher">
+      <button onClick={() => setOpen(!open)}>
+        <span>DEMO</span>
+        {role.charAt(0).toUpperCase() + role.slice(1)}
+        <Icon name="chevron" size={16} />
+      </button>
+      {open && (
+        <div>
+          {([
+            "cliente",
+            "organizador",
+            "administrador",
+            "marketing",
+          ] as Role[]).map((r) => (
+            <button
+              className={r === role ? "active" : ""}
+              onClick={() => {
+                onRole(r)
+                setOpen(false)
+              }}
+              key={r}
+            >
+              {r.charAt(0).toUpperCase() + r.slice(1)}
+              {r === role && <Icon name="check" size={16} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Sidebar({
+  role,
+  page,
+  setPage,
+}: {
+  role: Exclude<Role, "cliente">
+  page: string
+  setPage: (p: string) => void
+}) {
+  return (
+    <aside className="sidebar">
+      <Logo light />
+      <div className="workspace-label">
+        {role === "organizador"
+          ? "OPERACIONES"
+          : role === "administrador"
+            ? "ADMINISTRACIÓN"
+            : "MARKETING INTELLIGENCE"}
+      </div>
+      <nav>
+        {navs[role].map((x) => (
+          <button
+            key={x.label}
+            className={page === x.label ? "active" : ""}
+            onClick={() => setPage(x.label)}
+          >
+            <Icon name={x.icon} />
+            <span>{x.label}</span>
+            {x.label === "Check-in QR" && <i />}
+          </button>
+        ))}
+      </nav>
+      <div className="sidebar-user">
+        <span>MR</span>
+        <div>
+          <strong>María Rodríguez</strong>
+          <small>{role}</small>
+        </div>
+        <Icon name="chevron" size={16} />
+      </div>
+    </aside>
+  )
+}
+
+function KpiCard({
+  label,
+  value,
+  delta,
+  icon,
+  tone,
+}: {
+  label: string
+  value: string
+  delta: string
+  icon: IconName
+  tone?: string
+}) {
+  return (
+    <article className={`kpi-card ${tone || ""}`}>
+      <div className="kpi-icon">
+        <Icon name={icon} />
+      </div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small className={delta.startsWith("+") ? "positive" : ""}>{delta}</small>
+      <div className="sparkline">
+        {[32, 42, 38, 58, 51, 68, 76, 70, 87, 92].map((h, i) => (
+          <i key={i} style={{ height: `${h}%` }} />
+        ))}
+      </div>
+    </article>
+  )
+}
+
+function BarChart() {
+  const data = [18, 34, 62, 88, 74, 56, 39, 22]
+  return (
+    <div className="chart">
+      <div className="chart-grid">
+        {[0, 1, 2, 3].map((x) => (
+          <i key={x} />
+        ))}
+      </div>
+      <div className="bars">
+        {data.map((x, i) => (
+          <div key={i}>
+            <span style={{ height: `${x}%` }} data-value={x} />
+            <small>{14 + i}:00</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DashboardHome({
+  role,
+  setPage,
+}: {
+  role: Exclude<Role, "cliente">
+  setPage: (p: string) => void
+}) {
+  const isMarketing = role === "marketing",
+    isAdmin = role === "administrador"
+  return (
+    <>
+      <div className="dashboard-title">
+        <div>
+          <span>
+            {isMarketing
+              ? "ANÁLISIS DE CAMPAÑA"
+              : isAdmin
+                ? "CONTROL CENTRAL"
+                : "OPERACIÓN EN TIEMPO REAL"}
+          </span>
+          <h1>
+            {isMarketing
+              ? "Resumen ejecutivo"
+              : isAdmin
+                ? "Buenos días, María"
+                : "Coca-Cola Experience 2026"}
+          </h1>
+          <p>
+            {isMarketing
+              ? "Resultados consolidados y oportunidades del evento."
+              : isAdmin
+                ? "Esto es lo que está pasando en tu plataforma."
+                : "Sábado, 18 de abril · Fexpocruz, Santa Cruz"}
+          </p>
+        </div>
+        <div className="title-actions">
+          <Badge tone="green">
+            <i className="live-dot" /> EN VIVO
+          </Badge>
+          <select>
+            <option>Coca-Cola Experience 2026</option>
+            <option>Ritmo Urbano Sessions</option>
+          </select>
+          <Button icon="download">Exportar</Button>
+        </div>
+      </div>
+      <div className="kpi-grid">
+        <KpiCard
+          label="PARTICIPANTES"
+          value="350"
+          delta="+12% vs. meta"
+          icon="users"
+        />
+        <KpiCard
+          label="ASISTENTES"
+          value="280"
+          delta="80% asistencia"
+          icon="check"
+        />
+        <KpiCard
+          label="INTERACCIONES"
+          value="126"
+          delta="+18 hoy"
+          icon="spark"
+        />
+        <KpiCard
+          label="CONVERSIONES"
+          value="84"
+          delta="+24% tasa"
+          icon="chart"
+        />
+        <KpiCard
+          label="CANJES"
+          value="42"
+          delta="+7 última hora"
+          icon="ticket"
+        />
+        <KpiCard
+          label="SATISFACCIÓN"
+          value="4.7/5"
+          delta="+0.3 vs anterior"
+          icon="heart"
+        />
+      </div>
+      {isMarketing && (
+        <div className="natural-summary">
+          <Icon name="spark" />
+          <div>
+            <strong>Resumen inteligente</strong>
+            <p>
+              Asistieron <b>280 personas</b>, 126 interactuaron con productos y
+              se generaron <b>84 conversiones</b>. Coca-Cola Zero fue el
+              producto de mayor interés y el Laboratorio de sabores logró la
+              mejor satisfacción.
+            </p>
+          </div>
+          <button onClick={() => setPage("Insights IA")}>
+            Ver todos los insights <Icon name="arrow" />
+          </button>
+        </div>
+      )}
+      <div className="dashboard-grid">
+        <article className="panel chart-panel">
+          <div className="panel-head">
+            <div>
+              <span>AFLUENCIA</span>
+              <h3>Ingresos por hora</h3>
+            </div>
+            <div className="legend">
+              <i />
+              Check-ins <b>Pico: 17:00</b>
+            </div>
+          </div>
+          <BarChart />
+        </article>
+        <article className="panel progress-panel">
+          <div className="panel-head">
+            <div>
+              <span>OBJETIVOS</span>
+              <h3>Progreso de metas</h3>
+            </div>
+            <button>Ver detalle</button>
+          </div>
+          {[
+            ["Asistencia", "280 / 300", 93],
+            ["Interacciones", "126 / 150", 84],
+            ["Conversiones", "84 / 100", 84],
+            ["Canjes", "42 / 50", 84],
+          ].map((x) => (
+            <div className="progress-row" key={x[0]}>
+              <span>
+                {x[0]}
+                <b>{x[1]}</b>
+              </span>
+              <div>
+                <i style={{ width: `${x[2]}%` }} />
+              </div>
+            </div>
+          ))}
+        </article>
+      </div>
+      <div className="dashboard-grid lower">
+        <article className="panel">
+          <div className="panel-head">
+            <div>
+              <span>ACTIVIDADES</span>
+              <h3>Mayor participación</h3>
+            </div>
+            <Button
+              kind="ghost"
+              onClick={() =>
+                setPage(role === "organizador" ? "Actividades" : "Productos")
+              }
+            >
+              Ver todas
+            </Button>
+          </div>
+          <div className="ranking">
+            {[
+              ["01", "Laboratorio de sabores", "86 participantes", "4.9"],
+              ["02", "Photocall 360°", "62 participantes", "4.8"],
+              ["03", "Reto Zero Azúcar", "45 participantes", "4.6"],
+              ["04", "Ruleta de premios", "38 participantes", "4.5"],
+            ].map((x, i) => (
+              <div key={x[0]}>
+                <b>{x[0]}</b>
+                <span>
+                  <strong>{x[1]}</strong>
+                  <small>{x[2]}</small>
+                </span>
+                <i style={{ width: `${90 - i * 15}%` }} />
+                <em>{x[3]}</em>
+              </div>
+            ))}
+          </div>
+        </article>
+        <article className="panel alerts">
+          <div className="panel-head">
+            <div>
+              <span>ALERTAS</span>
+              <h3>Requiere atención</h3>
+            </div>
+            <Badge tone="red">3 nuevas</Badge>
+          </div>
+          {[
+            [
+              "red",
+              "Aforo al 93%",
+              "Quedan 20 cupos disponibles",
+              "Hace 4 min",
+            ],
+            [
+              "yellow",
+              "Stock bajo: Coca-Cola Zero",
+              "18 muestras restantes",
+              "Hace 12 min",
+            ],
+            [
+              "green",
+              "Meta de conversiones al 84%",
+              "Faltan 16 para el objetivo",
+              "Hace 28 min",
+            ],
+          ].map((x) => (
+            <div key={x[1]} className={`alert-${x[0]}`}>
+              <i />
+              <span>
+                <strong>{x[1]}</strong>
+                <small>{x[2]}</small>
+              </span>
+              <time>{x[3]}</time>
+            </div>
+          ))}
+        </article>
+      </div>
+    </>
+  )
+}
+
+const pageDescriptions: Record<string, string> = {
+  "Mis eventos": "Planifica, publica y controla cada experiencia.",
+  Eventos: "Administra todos los eventos de la organización.",
+  Participantes: "Consulta perfiles, asistencia e interacción.",
+  "Usuarios y roles": "Gestiona accesos, permisos y responsables.",
+  "Check-in QR": "Control de ingreso rápido y seguro.",
+  Actividades: "Dinámicas, códigos QR y participación en vivo.",
+  Degustaciones: "Stock, muestras y evaluación por sabor.",
+  Encuestas: "Construye preguntas y mide la experiencia.",
+  Productos: "Catálogo de productos, sabores y presentaciones.",
+  Campañas: "Fuentes, aliados y objetivos de conversión.",
+  Promociones: "Cupones, beneficios y canjes atribuibles.",
+  Automatizaciones: "Mensajes que se activan en el momento correcto.",
+  Integraciones: "Conecta tus fuentes y herramientas de negocio.",
+  Indicadores: "Métricas detalladas y fórmulas de medición.",
+  "Power BI": "Dashboard ejecutivo y sincronización de datos.",
+  "Insights IA": "Pregúntale a los datos y descubre oportunidades.",
+}
+
+function ScannerPage() {
+  const [result, setResult] = useState(false)
+  return (
+    <div className="scanner-layout">
+      <div className="scanner-camera">
+        <div className="camera-overlay">
+          <span>Centra el QR dentro del marco</span>
+          <div className="scan-box">
+            <i />
+            <i />
+            <i />
+            <i />
+            <b />
+          </div>
+          <small>La cámara detectará el código automáticamente</small>
+          <Button kind="secondary" onClick={() => setResult(!result)}>
+            Simular escaneo
+          </Button>
+        </div>
+      </div>
+      <div className="checkin-side">
+        <div className="live-count">
+          <span>INGRESOS EN VIVO</span>
+          <strong>280</strong>
+          <small>de 350 registrados · 80%</small>
+          <div>
+            <i style={{ width: "80%" }} />
+          </div>
+        </div>
+        {result && (
+          <div className="scan-result">
+            <div>
+              <Icon name="check" size={34} />
+            </div>
+            <span>ASISTENCIA REGISTRADA</span>
+            <h3>Valeria Rojas</h3>
+            <p>Entrada general · 17:42</p>
+            <Badge tone="green">QR VÁLIDO</Badge>
+          </div>
+        )}
+        <h3>Últimos ingresos</h3>
+        {["Diego Salvatierra", "Camila Vargas", "Nicolás Peña"].map((x, i) => (
+          <div className="recent-person" key={x}>
+            <span>
+              {x
+                .split(" ")
+                .map((y) => y[0])
+                .join("")}
+            </span>
+            <div>
+              <strong>{x}</strong>
+              <small>Entrada general</small>
+            </div>
+            <time>17:{39 - i * 2}</time>
+          </div>
+        ))}
+        <Button kind="ghost">Buscar ingreso manual</Button>
+      </div>
+    </div>
+  )
+}
+
+function PowerBI() {
+  const [tab, setTab] = useState(0)
+  const tabs = [
+    "Resumen general",
+    "Participantes",
+    "Eventos",
+    "Producto y campaña",
+    "Fidelización",
+  ]
+  return (
+    <div className="powerbi">
+      <div className="architecture">
+        {[
+          "Aplicación de eventos",
+          "Base de datos",
+          "API de datos",
+          "Power BI",
+          "Dashboard ejecutivo",
+        ].map((x, i) => (
+          <div key={x}>
+            <span>
+              <Icon
+                name={
+                  i === 0
+                    ? "spark"
+                    : i === 1
+                      ? "grid"
+                      : i === 2
+                        ? "settings"
+                        : "chart"
+                }
+              />
+            </span>
+            <strong>{x}</strong>
+            <small>
+              {i === 0 ? "En vivo" : i === 1 ? "24.860 filas" : "Conectado"}
+            </small>
+            {i < 4 && <Icon name="arrow" />}
+          </div>
+        ))}
+      </div>
+      <div className="power-actions">
+        <Badge tone="green">Sincronizado hace 2 min</Badge>
+        <Button>Sincronizar ahora</Button>
+        <Button kind="secondary">Abrir en Power BI</Button>
+      </div>
+      <div className="pbi-frame">
+        <header>
+          <strong>Power BI</strong>
+          <span>Coca-Cola Event Intelligence · Dashboard ejecutivo</span>
+          <div>
+            <Button kind="ghost">Exportar</Button>
+            <Button kind="ghost">Compartir</Button>
+          </div>
+        </header>
+        <nav>
+          {tabs.map((x, i) => (
+            <button
+              className={i === tab ? "active" : ""}
+              onClick={() => setTab(i)}
+              key={x}
+            >
+              {x}
+            </button>
+          ))}
+        </nav>
+        <div className="pbi-body">
+          <aside>
+            <strong>Filtros</strong>
+            <Field label="Evento" kind="select" options={["Experience 2026"]} />
+            <Field
+              label="Ciudad"
+              kind="select"
+              options={["Todas", "Santa Cruz"]}
+            />
+            <Field label="Periodo" kind="select" options={["Abril 2026"]} />
+          </aside>
+          <main>
+            <h3>{tabs[tab]}</h3>
+            <div className="mini-kpis">
+              <KpiCard
+                label="EVENTOS"
+                value={tab === 0 ? "24" : "350"}
+                delta="+12%"
+                icon="calendar"
+              />
+              <KpiCard
+                label="ASISTENCIA"
+                value="80%"
+                delta="+8%"
+                icon="users"
+              />
+              <KpiCard
+                label="CONVERSIONES"
+                value="84"
+                delta="+24%"
+                icon="chart"
+              />
+            </div>
+            <div className="pbi-charts">
+              <div>
+                <h4>Tendencia por evento</h4>
+                <BarChart />
+              </div>
+              <div>
+                <h4>Distribución de resultados</h4>
+                <div className="donut">
+                  <span>
+                    4.7<b>Satisfacción</b>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const formFieldsByPage: Record<string, string[]> = {
+  "Mis eventos": [
+    "Nombre del evento",
+    "Tipo de evento",
+    "Fecha y hora de inicio",
+    "Fecha y hora de fin",
+    "Lugar y dirección",
+    "Ciudad",
+    "Organizador",
+    "Responsable",
+    "Descripción",
+    "Objetivo del evento",
+    "Campaña asociada",
+    "Presupuesto (Bs)",
+    "Participantes esperados",
+    "Productos destacados",
+    "Canal o aliado",
+  ],
+  Eventos: [
+    "Nombre del evento",
+    "Tipo de evento",
+    "Fecha y hora de inicio",
+    "Lugar",
+    "Ciudad",
+    "Campaña asociada",
+    "Estado",
+  ],
+  Actividades: [
+    "Nombre de la actividad",
+    "Tipo de actividad",
+    "Descripción",
+    "Instrucciones para el participante",
+    "Evento",
+    "Horario de inicio",
+    "Horario de fin",
+    "Ubicación",
+    "Cupo máximo",
+    "Producto asociado",
+    "Encuesta asociada",
+    "Promoción asociada",
+    "Estado",
+  ],
+  Degustaciones: [
+    "Nombre del punto",
+    "Evento",
+    "Actividad asociada",
+    "Ubicación",
+    "Horario",
+    "Producto o sabor",
+    "Presentación",
+    "Stock inicial",
+    "Alerta de stock bajo",
+    "Máximo por persona",
+    "Plantilla post-degustación",
+    "Estado",
+  ],
+  Encuestas: [
+    "Nombre de encuesta",
+    "Descripción",
+    "Asignar a",
+    "Plantilla base",
+    "Mensaje de bienvenida",
+    "Mensaje de agradecimiento",
+    "Recompensa",
+    "Fecha de apertura",
+    "Fecha de cierre",
+  ],
+  "Usuarios y roles": [
+    "Nombre",
+    "Apellido",
+    "Correo",
+    "Celular",
+    "Rol",
+    "Estado",
+    "Eventos asignados",
+    "Permisos especiales",
+    "Contraseña temporal",
+  ],
+  Productos: [
+    "Nombre",
+    "Categoría",
+    "Marca",
+    "Presentaciones",
+    "Sabor",
+    "Descripción corta",
+    "Código interno / SKU",
+    "Estado",
+  ],
+  Campañas: [
+    "Nombre de campaña",
+    "Código único",
+    "Objetivo",
+    "Fecha de inicio",
+    "Fecha de fin",
+    "Presupuesto",
+    "Canales",
+    "Aliados",
+    "Productos foco",
+    "Acción objetivo",
+    "Meta de conversiones",
+    "Estado",
+  ],
+  Promociones: [
+    "Nombre",
+    "Tipo de beneficio",
+    "Valor",
+    "Código",
+    "Descripción y condiciones",
+    "Eventos asociados",
+    "Campaña",
+    "Producto aplicable",
+    "Límite total",
+    "Límite por persona",
+    "Vigencia inicio",
+    "Vigencia fin",
+    "Audiencia",
+    "Estado",
+  ],
+  Automatizaciones: [
+    "Nombre",
+    "Disparador",
+    "Canales",
+    "Audiencia",
+    "Plantilla de mensaje",
+    "Programación",
+    "Notificar al equipo",
+    "Condiciones",
+  ],
+  Integraciones: [
+    "URL / endpoint",
+    "API key o token",
+    "Usuario / workspace",
+    "Frecuencia de sincronización",
+    "Tablas a exponer",
+  ],
+}
+
+function DataPage({
+  page,
+  role,
+}: {
+  page: string
+  role: Exclude<Role, "cliente">
+}) {
+  const [form, setForm] = useState(false),
+    [toast, setToast] = useState(false)
+  const fields = formFieldsByPage[page]
+  if (page === "Check-in QR") return <ScannerPage />
+  if (page === "Power BI") return <PowerBI />
+  if (page === "Insights IA") return <InsightsPage />
+  if (page === "Indicadores") return <IndicatorsPage />
+  if (form && fields)
+    return (
+      <FormPage
+        page={page}
+        fields={fields}
+        onBack={() => setForm(false)}
+        onSave={() => {
+          setToast(true)
+          setForm(false)
+          window.setTimeout(() => setToast(false), 2500)
+        }}
+      />
+    )
+  const rows = [
+    [
+      "Coca-Cola Experience 2026",
+      "Santa Cruz",
+      "En curso",
+      "350",
+      "18 Abr 2026",
+    ],
+    ["Ritmo Urbano Sessions", "La Paz", "Programado", "480", "26 Abr 2026"],
+    [
+      "Copa Coca-Cola Fan Zone",
+      "Cochabamba",
+      "Programado",
+      "620",
+      "03 May 2026",
+    ],
+    ["Ruta Zero Universidades", "Sucre", "Borrador", "240", "14 May 2026"],
+  ]
+  return (
+    <>
+      <div className="dashboard-title compact">
+        <div>
+          <span>{role.toUpperCase()}</span>
+          <h1>{page}</h1>
+          <p>
+            {pageDescriptions[page] ||
+              "Consulta, administra y exporta información de la plataforma."}
+          </p>
+        </div>
+        <Button onClick={() => fields && setForm(true)} icon="plus">
+          {page === "Participantes"
+            ? "Registro manual"
+            : page === "Reportes"
+              ? "Generar reporte"
+              : `Crear ${page.toLowerCase().replace(/s$/, "")}`}
+        </Button>
+      </div>
+      {page === "Actividades" && (
+        <div className="metric-strip">
+          {[
+            ["6", "actividades activas"],
+            ["126", "participaciones"],
+            ["98", "personas únicas"],
+            ["4.8", "satisfacción"],
+          ].map((x) => (
+            <div key={x[1]}>
+              <strong>{x[0]}</strong>
+              <span>{x[1]}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="panel table-panel">
+        <div className="table-tools">
+          <div className="search-box">
+            <Icon name="search" />
+            <input placeholder={`Buscar en ${page.toLowerCase()}...`} />
+          </div>
+          <Button kind="secondary" icon="filter">
+            Filtros
+          </Button>
+          <Button kind="ghost" icon="download">
+            Exportar
+          </Button>
+        </div>
+        <div className="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>NOMBRE</th>
+                <th>CIUDAD</th>
+                <th>ESTADO</th>
+                <th>{page === "Participantes" ? "NIVEL" : "REGISTROS"}</th>
+                <th>FECHA</th>
+                <th>ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r[0]}>
+                  <td>
+                    <strong>
+                      {page === "Participantes"
+                        ? [
+                            "Valeria Rojas",
+                            "Diego Salvatierra",
+                            "Camila Vargas",
+                            "Nicolás Peña",
+                          ][i]
+                        : r[0]}
+                    </strong>
+                    <small>
+                      {page === "Actividades"
+                        ? "Degustación / sampling"
+                        : "Campaña Experience 2026"}
+                    </small>
+                  </td>
+                  <td>{r[1]}</td>
+                  <td>
+                    <Badge
+                      tone={
+                        r[2] === "En curso"
+                          ? "green"
+                          : r[2] === "Borrador"
+                            ? "neutral"
+                            : "yellow"
+                      }
+                    >
+                      {r[2]}
+                    </Badge>
+                  </td>
+                  <td>{r[3]}</td>
+                  <td>{r[4]}</td>
+                  <td>
+                    <button>
+                      <Icon name="eye" />
+                    </button>
+                    <button>
+                      <Icon name="menu" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="pagination">
+          <span>Mostrando 1–4 de 24 resultados</span>
+          <div>
+            <button>Anterior</button>
+            <button className="active">1</button>
+            <button>2</button>
+            <button>3</button>
+            <button>Siguiente</button>
+          </div>
+        </div>
+      </div>
+      {toast && (
+        <div className="toast">
+          <Icon name="check" />
+          <div>
+            <strong>Guardado correctamente</strong>
+            <span>Los cambios ya están disponibles.</span>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function FormPage({
+  page,
+  fields,
+  onBack,
+  onSave,
+}: {
+  page: string
+  fields: string[]
+  onBack: () => void
+  onSave: () => void
+}) {
+  const [step, setStep] = useState(1),
+    [loading, setLoading] = useState(false)
+  const total = page === "Mis eventos" ? 6 : 1
+  const shown = total > 1 ? fields.slice((step - 1) * 3, step * 3 + 3) : fields
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (step < total) {
+      setStep(step + 1)
+      return
+    }
+    setLoading(true)
+    window.setTimeout(() => {
+      setLoading(false)
+      onSave()
+    }, 700)
+  }
+  return (
+    <div className="form-page">
+      <button className="back-link" onClick={onBack}>
+        <Icon name="arrow" /> Volver a {page}
+      </button>
+      <div className="dashboard-title compact">
+        <div>
+          <span>FORMULARIO · BORRADOR GUARDADO</span>
+          <h1>
+            {page === "Mis eventos" ? "Crear nuevo evento" : `Crear · ${page}`}
+          </h1>
+          <p>Los campos marcados con * son obligatorios.</p>
+        </div>
+      </div>
+      {total > 1 && (
+        <div className="stepper">
+          {[
+            "Información",
+            "Entrada",
+            "Cronograma",
+            "Actividades",
+            "Promociones",
+            "Revisión",
+          ].map((x, i) => (
+            <button
+              className={i + 1 === step ? "active" : i + 1 < step ? "done" : ""}
+              onClick={() => i < step && setStep(i + 1)}
+              key={x}
+            >
+              <i>{i + 1 < step ? <Icon name="check" size={14} /> : i + 1}</i>
+              <span>{x}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <form className="panel form-panel" onSubmit={submit}>
+        <div className="form-title">
+          <span>
+            PASO {step}
+            {total > 1 ? ` DE ${total}` : ""}
+          </span>
+          <h3>
+            {total > 1
+              ? [
+                  "Información general",
+                  "Entrada y aforo",
+                  "Cronograma",
+                  "Actividades",
+                  "Promociones y cupones",
+                  "Metas y publicación",
+                ][step - 1]
+              : `Datos de ${page.toLowerCase()}`}
+          </h3>
+          <p>
+            Completa la información para mantener los datos listos para el
+            equipo.
+          </p>
+        </div>
+        <div className="admin-field-grid">
+          {shown.map((x, i) => (
+            <Field
+              key={x}
+              label={x}
+              required={i < Math.ceil(shown.length * 0.7)}
+              defaultValue={
+                i === 0
+                  ? page === "Mis eventos"
+                    ? "Coca-Cola Experience 2026"
+                    : ""
+                  : ""
+              }
+              kind={
+                x.includes("Descripción") ||
+                x.includes("Objetivo") ||
+                x.includes("Mensaje")
+                  ? "textarea"
+                  : x.includes("Tipo") ||
+                      x.includes("Estado") ||
+                      x.includes("Ciudad") ||
+                      x.includes("Campaña") ||
+                      x.includes("Rol")
+                    ? "select"
+                    : undefined
+              }
+              options={[
+                "Seleccionar opción",
+                "Activo",
+                "Programado",
+                "Santa Cruz",
+              ]}
+              error={
+                i === shown.length - 1
+                  ? "Revisa este campo antes de continuar."
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+        {step === 3 && (
+          <div className="schedule-block">
+            <strong>Bloque de cronograma</strong>
+            <span>16:00 — 16:45 · Apertura y check-in · Acceso principal</span>
+            <button type="button">Duplicar</button>
+            <button type="button">Eliminar</button>
+          </div>
+        )}
+        <div className="form-actions">
+          <Button kind="ghost" onClick={onBack}>
+            Cancelar
+          </Button>
+          {step > 1 && (
+            <Button kind="secondary" onClick={() => setStep(step - 1)}>
+              Atrás
+            </Button>
+          )}
+          <Button type="submit" disabled={loading}>
+            {loading
+              ? "Guardando..."
+              : step < total
+                ? "Guardar y continuar"
+                : "Guardar y publicar"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function IndicatorsPage() {
+  return (
+    <>
+      <div className="dashboard-title compact">
+        <div>
+          <span>MEDICIÓN</span>
+          <h1>Indicadores detallados</h1>
+          <p>Fórmulas transparentes y resultados del evento seleccionado.</p>
+        </div>
+        <Button icon="settings">Configurar metas</Button>
+      </div>
+      <div className="indicator-grid">
+        {[
+          [
+            "Asistencia efectiva",
+            "80%",
+            "asistentes ÷ registrados × 100",
+            "280 / 350",
+          ],
+          [
+            "Tasa de participación",
+            "45%",
+            "participantes en actividad ÷ asistentes × 100",
+            "126 / 280",
+          ],
+          [
+            "Tasa de conversión",
+            "24%",
+            "conversiones ÷ registrados × 100",
+            "84 / 350",
+          ],
+          [
+            "Índice de recurrencia",
+            "32%",
+            "recurrentes ÷ participantes × 100",
+            "112 / 350",
+          ],
+          [
+            "Consentimiento",
+            "68%",
+            "registros con consentimiento ÷ registros × 100",
+            "238 / 350",
+          ],
+          ["NPS", "+67", "% promotores − % detractores", "76% − 9%"],
+        ].map((x) => (
+          <article className="panel" key={x[0]}>
+            <span>{x[0]}</span>
+            <strong>{x[1]}</strong>
+            <p>{x[3]}</p>
+            <small>FÓRMULA · {x[2]}</small>
+          </article>
+        ))}
+      </div>
+      <div className="dashboard-grid">
+        <article className="panel chart-panel">
+          <div className="panel-head">
+            <div>
+              <span>OPERACIÓN</span>
+              <h3>Horario de mayor afluencia</h3>
+            </div>
+          </div>
+          <BarChart />
+        </article>
+        <article className="panel">
+          <div className="panel-head">
+            <div>
+              <span>EMBUDO</span>
+              <h3>Niveles de interacción</h3>
+            </div>
+          </div>
+          <div className="funnel">
+            {[
+              ["Visitante", 520],
+              ["Registrado", 350],
+              ["Participó", 198],
+              ["Probó producto", 126],
+              ["Aceptó información", 104],
+              ["Conversión", 84],
+            ].map((x, i) => (
+              <div style={{ width: `${100 - i * 9}%` }} key={x[0]}>
+                <span>
+                  {i + 1}. {x[0]}
+                </span>
+                <b>{x[1]}</b>
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
+    </>
+  )
+}
+
+function InsightsPage() {
+  const [query, setQuery] = useState("")
+  return (
+    <>
+      <div className="dashboard-title compact">
+        <div>
+          <span>INTELIGENCIA ARTIFICIAL</span>
+          <h1>Pregúntale a tus datos</h1>
+          <p>Recomendaciones accionables basadas en el desempeño real.</p>
+        </div>
+        <Badge tone="dark">
+          <Icon name="spark" size={15} /> ACTUALIZADO HOY
+        </Badge>
+      </div>
+      <div className="insight-hero">
+        <Icon name="spark" size={30} />
+        <h2>
+          ¿Qué quieres entender
+          <br />
+          sobre tus eventos?
+        </h2>
+        <div>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Ej. ¿Qué actividad generó más conversiones?"
+          />
+          <Button icon="arrow">Analizar</Button>
+        </div>
+        <small>Prueba: “Predice la asistencia del próximo evento”</small>
+      </div>
+      <div className="insight-grid">
+        {[
+          [
+            "OPORTUNIDAD",
+            "Zero lidera entre jóvenes",
+            "El segmento de 18–24 años muestra 34% más intención de compra por Coca-Cola Zero. Activa un cupón específico para este grupo.",
+          ],
+          [
+            "PATRÓN",
+            "El sampling impulsa conversión",
+            "Quienes participaron en el Laboratorio de sabores convierten 2.4 veces más que el resto de asistentes.",
+          ],
+          [
+            "PREDICCIÓN",
+            "Próxima asistencia: 328",
+            "El modelo estima 82% de asistencia para Ritmo Urbano Sessions, con un rango probable de 312–344 personas.",
+          ],
+          [
+            "ALERTA",
+            "Stock en riesgo",
+            "Coca-Cola Zero llegará al mínimo operativo en 42 minutos al ritmo actual de entrega.",
+          ],
+        ].map((x, i) => (
+          <article key={x[1]}>
+            <div>
+              <Icon name={i === 3 ? "bell" : "spark"} />
+              <Badge tone={i === 3 ? "red" : i === 0 ? "green" : "neutral"}>
+                {x[0]}
+              </Badge>
+            </div>
+            <h3>{x[1]}</h3>
+            <p>{x[2]}</p>
+            <button>
+              Ver análisis <Icon name="arrow" />
+            </button>
+          </article>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function AppShell({
+  role,
+  onRole,
+}: {
+  role: Exclude<Role, "cliente">
+  onRole: (r: Role) => void
+}) {
+  const [page, setPage] = useState(navs[role][0].label)
+  const isHome = page === navs[role][0].label
+  return (
+    <div className="app-shell">
+      <Sidebar role={role} page={page} setPage={setPage} />
+      <header className="topbar">
+        <button className="mobile-menu">
+          <Icon name="menu" />
+        </button>
+        <div className="top-event">
+          <span>
+            {role === "administrador"
+              ? "Panel administrativo"
+              : "Evento activo"}
+          </span>
+          <strong>Coca-Cola Experience 2026</strong>
+        </div>
+        <div className="top-actions">
+          <button>
+            <Icon name="search" />
+          </button>
+          <button className="notification">
+            <Icon name="bell" />
+            <i />
+          </button>
+          <span>MR</span>
+        </div>
+      </header>
+      <main className="dashboard-main">
+        {isHome ? (
+          <DashboardHome role={role} setPage={setPage} />
+        ) : (
+          <DataPage page={page} role={role} />
+        )}
+      </main>
+      <nav className="bottom-nav">
+        {navs[role].slice(0, 5).map((x) => (
+          <button
+            className={page === x.label ? "active" : ""}
+            onClick={() => setPage(x.label)}
+            key={x.label}
+          >
+            <Icon name={x.icon} />
+            <span>{x.label.split(" ")[0]}</span>
+          </button>
+        ))}
+      </nav>
+      <RoleSwitcher role={role} onRole={onRole} />
+    </div>
+  )
+}
+
+export default function EventApp() {
+  const [role, setRole] = useState<Role>("cliente")
+  return role === "cliente" ? (
+    <Landing onRole={setRole} />
+  ) : (
+    <AppShell key={role} role={role} onRole={setRole} />
+  )
+}
