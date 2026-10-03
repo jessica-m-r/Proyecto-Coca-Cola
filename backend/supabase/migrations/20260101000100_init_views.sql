@@ -1,4 +1,5 @@
--- ============================================================================
+--
+ ============================================================================
 -- Coca-Cola Event Intelligence
 -- Migration 002: Vistas analíticas para Recharts / Power BI
 -- Todas las vistas exponen `evento_id` + `evento_nombre` para filtros directos.

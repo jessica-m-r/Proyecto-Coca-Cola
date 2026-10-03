@@ -1,12 +1,11 @@
 node_modules/
-.next/
-out/
-build/
+.DS_Store
+
+# Variables de entorno (nunca se suben)
 .env
 .env.local
 .env*.local
-*.tsbuildinfo
-next-env.d.ts
-.DS_Store
-supabase/.branches
-supabase/.temp
+
+# Estado local del CLI de Supabase (enlace al proyecto remoto)
+backend/supabase/.branches
+backend/supabase/.temp

@@ -1,37 +1,14 @@
 {
-  "name": "coca-cola-event-intelligence",
-  "version": "0.1.0",
+  "name": "coca-cola-event-intelligence-root",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "db:reset": "supabase db reset",
-    "db:types": "supabase gen types typescript --local > lib/database.types.ts"
-  },
-  "dependencies": {
-    "@supabase/ssr": "^0.5.2",
-    "@supabase/supabase-js": "^2.45.4",
-    "html5-qrcode": "^2.3.8",
-    "next": "^15.1.0",
-    "qrcode": "^1.5.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "recharts": "^2.13.3",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.0",
-    "@types/qrcode": "^1.5.5",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "eslint": "^9.16.0",
-    "eslint-config-next": "^15.1.0",
-    "postcss": "^8.4.49",
-    "supabase": "^2.47.0",
-    "tailwindcss": "^3.4.16",
-    "typescript": "^5.7.2"
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "lint": "npm --prefix frontend run lint",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "db:push": "cd backend && supabase db push",
+    "db:migrations": "cd backend && supabase migration list",
+    "db:types": "cd backend && supabase gen types typescript --linked > ../frontend/lib/database.types.ts"
   }
 }
