@@ -1324,6 +1324,20 @@ const navs: Record<Exclude<Role, "cliente">, {
   ],
 }
 
+const administratorAllowedPages = [
+  "Vista general",
+  "Eventos",
+  "Usuarios y roles",
+  "Participantes",
+  "Productos",
+  "Campañas",
+  "Indicadores",
+  "Automatizaciones",
+  "Reportes",
+  "Integraciones",
+  "Power BI",
+]
+
 function RoleSwitcher({
   role,
   onRole,
@@ -1969,6 +1983,13 @@ function AppShell({
   const [page, setPage] = useState(navs[role][0].label)
   const isHome = page === navs[role][0].label
   const isStats = isHome || ["Indicadores", "Embudo", "Satisfacción y NPS", "Segmentación", "Mapa de asistentes", "Comparar eventos", "Promociones", "Insights IA", "Reporte ejecutivo", "Reportes", "Power BI"].includes(page) || (role === "marketing" && page === "Productos")
+
+  useEffect(() => {
+    if (role === "administrador" && !administratorAllowedPages.includes(page)) {
+      setPage("Vista general")
+    }
+  }, [role, page])
+
   return (
     <div className="app-shell">
       <Sidebar role={role} page={page} setPage={setPage} />
