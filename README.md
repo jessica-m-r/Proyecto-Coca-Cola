@@ -95,4 +95,20 @@ El lector QR público lee el contenido del código, pero no registra asistencia.
 Power BI e Insights IA ahora muestran las estadísticas registradas y explican
 que sus integraciones externas no están configuradas.
 
+## Reportes y Power BI
+
+El botón **Exportar** del panel descarga CSV o Excel del evento seleccionado y llama
+a `registrar_reporte()`, que guarda el reporte en `report_runs` y congela los KPIs
+de `v_event_kpis` en `report_snapshots`. La sección **Reportes** lista el historial
+(`v_report_historial`) y permite volver a descargar cada reporte con sus cifras
+congeladas. La vista **Power BI** muestra las mismas tarjetas de `v_event_kpis` y la
+fecha del último reporte.
+
+Power BI lee el esquema `powerbi` con el rol de solo lectura `powerbi_reader`:
+mismas vistas `v_*` sin datos personales, más `v_dim_evento`, `v_report_historial`,
+`v_report_snapshot` y `v_report_comparacion_eventos`. Pasos en
+[`powerbi/README_WINDOWS.md`](powerbi/README_WINDOWS.md) y medidas en
+[`powerbi/medidas.dax`](powerbi/medidas.dax). Reportes de ejemplo:
+`backend/supabase/seed/report_runs_demo.sql`.
+
 Validación local: `npm run typecheck`, `npm run lint`, `npm test` y `npm run build`.

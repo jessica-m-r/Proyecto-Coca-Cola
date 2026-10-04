@@ -1110,6 +1110,99 @@ export type Database = {
           },
         ]
       }
+      report_runs: {
+        Row: {
+          event_id: number | null
+          formato: string
+          generado_por: string
+          generated_at: string
+          id: number
+          parametros: Json
+          tipo_reporte: string
+        }
+        Insert: {
+          event_id?: number | null
+          formato: string
+          generado_por?: string
+          generated_at?: string
+          id?: number
+          parametros?: Json
+          tipo_reporte: string
+        }
+        Update: {
+          event_id?: number | null
+          formato?: string
+          generado_por?: string
+          generated_at?: string
+          id?: number
+          parametros?: Json
+          tipo_reporte?: string
+        }
+        Relationships: []
+      }
+      report_snapshots: {
+        Row: {
+          asistentes: number
+          canjes: number
+          consentimientos: number
+          conversiones: number
+          event_id: number | null
+          evento_nombre: string
+          generated_at: string
+          id: number
+          interacciones: number
+          muestras: number
+          nps: number | null
+          pct_asistencia: number | null
+          pct_participacion: number | null
+          recurrencia: number | null
+          registrados: number
+          report_run_id: number
+          satisfaccion: number | null
+          tasa_conversion: number | null
+        }
+        Insert: {
+          asistentes?: number
+          canjes?: number
+          consentimientos?: number
+          conversiones?: number
+          event_id?: number | null
+          evento_nombre: string
+          generated_at?: string
+          id?: number
+          interacciones?: number
+          muestras?: number
+          nps?: number | null
+          pct_asistencia?: number | null
+          pct_participacion?: number | null
+          recurrencia?: number | null
+          registrados?: number
+          report_run_id: number
+          satisfaccion?: number | null
+          tasa_conversion?: number | null
+        }
+        Update: {
+          asistentes?: number
+          canjes?: number
+          consentimientos?: number
+          conversiones?: number
+          event_id?: number | null
+          evento_nombre?: string
+          generated_at?: string
+          id?: number
+          interacciones?: number
+          muestras?: number
+          nps?: number | null
+          pct_asistencia?: number | null
+          pct_participacion?: number | null
+          recurrencia?: number | null
+          registrados?: number
+          report_run_id?: number
+          satisfaccion?: number | null
+          tasa_conversion?: number | null
+        }
+        Relationships: []
+      }
       role: {
         Row: {
           descripcion: string | null
@@ -1690,6 +1783,69 @@ export type Database = {
         }
         Relationships: []
       }
+      v_report_comparacion_eventos: {
+        Row: {
+          asistentes_a: number | null
+          asistentes_b: number | null
+          canjes_a: number | null
+          canjes_b: number | null
+          conversiones_a: number | null
+          conversiones_b: number | null
+          dif_asistentes: number | null
+          dif_canjes: number | null
+          dif_conversiones: number | null
+          dif_interacciones: number | null
+          dif_satisfaccion: number | null
+          event_id_a: number | null
+          event_id_b: number | null
+          evento_a: string | null
+          evento_b: string | null
+          interacciones_a: number | null
+          interacciones_b: number | null
+          satisfaccion_a: number | null
+          satisfaccion_b: number | null
+        }
+        Relationships: []
+      }
+      v_report_historial: {
+        Row: {
+          event_id: number | null
+          evento_nombre: string | null
+          eventos_incluidos: number | null
+          formato: string | null
+          generado_por: string | null
+          generated_at: string | null
+          parametros: Json | null
+          report_run_id: number | null
+          tipo_reporte: string | null
+        }
+        Relationships: []
+      }
+      v_report_snapshot: {
+        Row: {
+          asistentes: number | null
+          canjes: number | null
+          consentimientos: number | null
+          conversiones: number | null
+          event_id: number | null
+          evento_nombre: string | null
+          formato: string | null
+          generated_at: string | null
+          interacciones: number | null
+          muestras: number | null
+          nps: number | null
+          pct_asistencia: number | null
+          pct_participacion: number | null
+          recurrencia: number | null
+          registrados: number | null
+          report_run_id: number | null
+          satisfaccion: number | null
+          snapshot_id: number | null
+          tasa_conversion: number | null
+          tipo_reporte: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_access_evento: { Args: { p_evento_id: number }; Returns: boolean }
@@ -1702,6 +1858,16 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_organizador_of: { Args: { p_evento_id: number }; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
+      registrar_reporte: {
+        Args: {
+          p_event_id: number | null
+          p_formato: string
+          p_generado_por?: string
+          p_parametros?: Json
+          p_tipo_reporte: string
+        }
+        Returns: number
+      }
       usuario_id_via_registro: {
         Args: { p_registro_id: number }
         Returns: number
