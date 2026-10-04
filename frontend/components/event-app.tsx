@@ -1628,9 +1628,12 @@ function DataPage({
     [loading, setLoading] = useState(false),
     [searchTerm, setSearchTerm] = useState(""),
     [filterOpen, setFilterOpen] = useState(false),
-    [statusFilter, setStatusFilter] = useState<"all" | "planificado" | "en_curso" | "cerrado">("all")
+    [statusFilter, setStatusFilter] = useState<"all" | "planificado" | "en_curso" | "cerrado">("all"),
+    [selectedEventId, setSelectedEventId] = useState("all"),
+    [eventOptions, setEventOptions] = useState<Array<{ id: string; label: string }>>([])
   const fields = formFieldsByPage[page]
   const entity = getAdminEntityForPage(page)
+  const showUserRoleFilters = page === "Usuarios y roles" || page === "Participantes"
 
   useEffect(() => {
     if (!entity) {
@@ -1641,7 +1644,12 @@ function DataPage({
     let active = true
     setLoading(true)
 
-    fetch(`/api/admin/${entity}`, { cache: "no-store" })
+    const url = new URL(`/api/admin/${entity}`, window.location.origin)
+    if (showUserRoleFilters && selectedEventId !== "all") {
+      url.searchParams.set("event_id", selectedEventId)
+    }
+
+    fetch(url.toString(), { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error("No se pudieron cargar los registros.")
@@ -1659,7 +1667,37 @@ function DataPage({
     return () => {
       active = false
     }
-  }, [entity])
+  }, [entity, selectedEventId, showUserRoleFilters])
+
+  useEffect(() => {
+    if (!showUserRoleFilters) {
+      setEventOptions([])
+      return
+    }
+
+    let active = true
+    fetch("/api/admin/eventos", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return
+        const body = await response.json().catch(() => ({}))
+        if (!active) return
+        const items = Array.isArray(body?.data) ? (body.data as Array<Record<string, unknown>>) : []
+        const nextOptions = items
+          .map((item: Record<string, unknown>) => ({
+            id: String(item.id ?? ""),
+            label: String(item.nombre ?? item.titulo ?? "Evento sin nombre"),
+          }))
+          .filter((item: { id: string; label: string }) => item.id)
+        setEventOptions(nextOptions)
+      })
+      .catch(() => {
+        if (active) setEventOptions([])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [showUserRoleFilters])
 
   if (page === "Check-in QR") return <ScannerPage />
   if (page === "Predicciones IA") return <MlPredictions role={role} />
@@ -1677,10 +1715,18 @@ function DataPage({
       />
     )
 
+  const isEventStatusPage = page === "Eventos" || page === "Mis eventos"
+
   const visibleRecords = records.filter((row) => {
     const normalizedRow = row ?? {}
+    const nestedRoleName =
+      typeof normalizedRow.role === "object" && normalizedRow.role && "nombre" in normalizedRow.role
+        ? String((normalizedRow.role as Record<string, unknown>).nombre ?? "")
+        : ""
+
     const haystack = [
       normalizedRow.nombre,
+      normalizedRow.apellido,
       normalizedRow.email,
       normalizedRow.ciudad,
       normalizedRow.lugar,
@@ -1690,6 +1736,8 @@ function DataPage({
       normalizedRow.estado,
       normalizedRow.activo,
       normalizedRow.activa,
+      normalizedRow.rol,
+      nestedRoleName,
     ]
       .filter(Boolean)
       .join(" ")
@@ -1697,6 +1745,8 @@ function DataPage({
 
     const matchesSearch =
       !searchTerm.trim() || haystack.includes(searchTerm.trim().toLowerCase()) || haystack.includes(searchTerm.trim().toLowerCase().replace(/\s+/g, ""))
+
+    if (!isEventStatusPage) return matchesSearch
 
     const rawStatus = String(normalizedRow.estado ?? normalizedRow.status ?? normalizedRow.activo ?? normalizedRow.activa ?? "planificado").toLowerCase()
     const normalizedStatus = rawStatus === "borrador" ? "planificado" : rawStatus === "activo" ? "en_curso" : rawStatus === "finalizado" || rawStatus === "cancelado" ? "cerrado" : rawStatus
@@ -1752,41 +1802,59 @@ function DataPage({
               placeholder={`Buscar en ${page.toLowerCase()}...`}
             />
           </div>
-          <div style={{ position: "relative" }}>
-            <Button kind="secondary" icon="filter" onClick={() => setFilterOpen((value) => !value)}>
-              Filtros
-            </Button>
-            {filterOpen && (
-              <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", gap: 6, zIndex: 10, minWidth: 160, boxShadow: "0 10px 25px rgba(0,0,0,0.08)" }}>
-                {[
-                  ["all", "Todos"],
-                  ["planificado", "Planificados"],
-                  ["en_curso", "En curso"],
-                  ["cerrado", "Cerrados"],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setStatusFilter(value as typeof statusFilter)
-                      setFilterOpen(false)
-                    }}
-                    style={{
-                      border: "none",
-                      background: statusFilter === value ? "#f1f5f9" : "transparent",
-                      padding: "8px 10px",
-                      borderRadius: 8,
-                      textAlign: "left",
-                      fontWeight: statusFilter === value ? 700 : 500,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {label}
-                  </button>
+          {showUserRoleFilters && (
+            <div className="search-box" style={{ minWidth: 220 }}>
+              <select
+                value={selectedEventId}
+                onChange={(event) => setSelectedEventId(event.target.value)}
+                style={{ width: "100%", border: "none", background: "transparent", color: "#374151", fontSize: 14, outline: "none" }}
+              >
+                <option value="all">Todos los eventos</option>
+                {eventOptions.map((eventItem) => (
+                  <option key={eventItem.id} value={eventItem.id}>
+                    {eventItem.label}
+                  </option>
                 ))}
-              </div>
-            )}
-          </div>
+              </select>
+            </div>
+          )}
+          {isEventStatusPage && (
+            <div style={{ position: "relative" }}>
+              <Button kind="secondary" icon="filter" onClick={() => setFilterOpen((value) => !value)}>
+                Filtros
+              </Button>
+              {filterOpen && (
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", gap: 6, zIndex: 10, minWidth: 160, boxShadow: "0 10px 25px rgba(0,0,0,0.08)" }}>
+                  {[
+                    ["all", "Todos"],
+                    ["planificado", "Planificados"],
+                    ["en_curso", "En curso"],
+                    ["cerrado", "Cerrados"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter(value as typeof statusFilter)
+                        setFilterOpen(false)
+                      }}
+                      style={{
+                        border: "none",
+                        background: statusFilter === value ? "#f1f5f9" : "transparent",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontWeight: statusFilter === value ? 700 : 500,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <Button kind="ghost" icon="download">
             Exportar
           </Button>
@@ -1797,8 +1865,8 @@ function DataPage({
               <tr>
                 <th>NOMBRE</th>
                 <th>CIUDAD</th>
-                <th>ESTADO</th>
-                <th>{page === "Participantes" ? "NIVEL" : "REGISTROS"}</th>
+                {!showUserRoleFilters && <th>{isEventStatusPage ? "ESTADO" : "REGISTROS"}</th>}
+                <th>{showUserRoleFilters ? "ROL" : "REGISTROS"}</th>
                 <th>FECHA</th>
                 <th>ACCIONES</th>
               </tr>
@@ -1806,13 +1874,13 @@ function DataPage({
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "2rem" }}>
+                  <td colSpan={showUserRoleFilters ? 5 : 6} style={{ textAlign: "center", padding: "2rem" }}>
                     Cargando datos...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "2rem" }}>
+                  <td colSpan={showUserRoleFilters ? 5 : 6} style={{ textAlign: "center", padding: "2rem" }}>
                     No hay registros para mostrar.
                   </td>
                 </tr>
@@ -1828,23 +1896,25 @@ function DataPage({
                       <td>
                         <strong>{row.name}</strong>
                       </td>
-                    <td>{row.city}</td>
-                    <td>
-                      <Badge
-                        tone={
-                          row.status === "activo"
-                            ? "green"
-                            : row.status === "finalizado"
-                              ? "neutral"
-                              : row.status === "inactivo"
-                                ? "yellow"
-                                : "yellow"
-                        }
-                      >
-                        {row.status}
-                      </Badge>
-                    </td>
-                    <td>{String(row.metric)}</td>
+                      <td>{row.city}</td>
+                      {!showUserRoleFilters && (
+                        <td>
+                          <Badge
+                            tone={
+                              row.status === "activo"
+                                ? "green"
+                                : row.status === "finalizado"
+                                  ? "neutral"
+                                  : row.status === "inactivo"
+                                    ? "yellow"
+                                    : "yellow"
+                            }
+                          >
+                            {row.status}
+                          </Badge>
+                        </td>
+                      )}
+                      <td>{String(row.metric)}</td>
                       <td>{row.date}</td>
                       <td>
                         <button>

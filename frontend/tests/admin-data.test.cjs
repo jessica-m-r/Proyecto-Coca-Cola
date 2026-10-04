@@ -50,3 +50,19 @@ test("los filtros de usuarios y participantes no dependen de un id fijo de rol",
   assert.deepEqual(resolveUserRoleIdsForEntity("participantes", roles), [7]);
   assert.deepEqual(resolveUserRoleIdsForEntity("usuarios", roles), [1, 2, 3]);
 });
+
+test("los usuarios muestran nombre completo y el rol real, sin usar filtros de evento", () => {
+  const rows = getDisplayRows("Usuarios y roles", [{
+    nombre: "Ana",
+    apellido: "García",
+    role_id: 2,
+    role: { nombre: "organizador" },
+    activo: true,
+    ciudad: "Santa Cruz",
+    actualizado_en: "2026-03-05T09:00:00.000Z",
+  }]);
+
+  assert.equal(rows[0].name, "Ana García");
+  assert.equal(rows[0].status, "activo");
+  assert.equal(rows[0].metric, "organizador");
+});

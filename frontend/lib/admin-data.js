@@ -55,7 +55,7 @@ function getDisplayRows(page, rows = []) {
 
   return rows.map((row, index) => {
     const safeRow = row ?? {};
-    const name =
+    const rawName =
       safeRow.nombre ||
       safeRow.titulo ||
       safeRow.title ||
@@ -63,20 +63,27 @@ function getDisplayRows(page, rows = []) {
       safeRow.sku ||
       `Registro ${index + 1}`;
 
+    const fullName =
+      page === "Usuarios y roles" || page === "Participantes"
+        ? [safeRow.nombre, safeRow.apellido].filter(Boolean).join(" ").trim() || rawName
+        : rawName;
+
     const city = safeRow.ciudad || safeRow.lugar || safeRow.ubicacion || "—";
     const status = normalizeStatus(
       safeRow.estado ?? safeRow.activo ?? safeRow.activa ?? safeRow.status,
     );
 
     let metric = "—";
-    if (page === "Participantes") {
-      metric = safeRow.role_id ?? safeRow.nivel ?? safeRow.activo ?? "Activo";
+    if (page === "Participantes" || page === "Usuarios y roles") {
+      const roleSource =
+        typeof safeRow.role === "object" && safeRow.role && "nombre" in safeRow.role
+          ? safeRow.role.nombre
+          : safeRow.rol || safeRow.role || safeRow.role_nombre || safeRow.roleName || safeRow.role_id;
+      metric = roleSource || "Sin rol";
     } else if (page === "Productos") {
       metric = safeRow.precio ?? safeRow.valor ?? "—";
     } else if (page === "Campañas") {
       metric = safeRow.presupuesto ?? safeRow.meta ?? "—";
-    } else if (page === "Usuarios y roles") {
-      metric = safeRow.role_id ?? safeRow.rol ?? safeRow.role ?? "—";
     } else {
       metric = safeRow.aforo ?? safeRow.participantes_esperados ?? safeRow.registros ?? "—";
     }
@@ -89,7 +96,7 @@ function getDisplayRows(page, rows = []) {
       "—";
 
     return {
-      name,
+      name: fullName,
       city,
       status,
       metric,

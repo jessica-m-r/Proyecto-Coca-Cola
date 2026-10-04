@@ -154,29 +154,50 @@ export async function GET(
 ) {
   const { entity } = await context.params;
   const table = entityMap[entity];
+  const { searchParams } = new URL(_request.url);
+  const selectedEventId = searchParams.get("event_id");
 
   if (!table) {
     return NextResponse.json({ ok: false, error: "Entidad no soportada" }, { status: 404 });
   }
 
   const { resolveUserRoleIdsForEntity } = await import("@/lib/admin-data");
-  const { data: roleRows, error: rolesError } = await supabaseAdmin
-    .from("role")
-    .select("id,nombre")
-    .in("nombre", ["administrador", "organizador", "marketing", "participante"]);
-
-  if (rolesError) {
-    return NextResponse.json({ ok: false, error: rolesError.message }, { status: 500 });
-  }
-
-  const roleIds = resolveUserRoleIdsForEntity(entity, roleRows ?? []);
+  const roleIds = [] as number[];
   let query = supabaseAdmin.from(table).select("*");
+
+  if (entity === "usuarios" || entity === "participantes") {
+    const { data: roleRows, error: rolesError } = await supabaseAdmin
+      .from("role")
+      .select("id,nombre")
+      .in("nombre", ["administrador", "organizador", "marketing", "participante"]);
+
+    if (rolesError) {
+      return NextResponse.json({ ok: false, error: rolesError.message }, { status: 500 });
+    }
+
+    roleIds.push(...resolveUserRoleIdsForEntity(entity, roleRows ?? []));
+    query = supabaseAdmin.from(table).select("*, role:role_id(id,nombre)");
+  }
 
   if (entity === "participantes") {
     query = roleIds.length ? query.in("role_id", roleIds) : query.eq("role_id", -1);
   }
   if (entity === "usuarios") {
     query = roleIds.length ? query.in("role_id", roleIds) : query.eq("role_id", -1);
+  }
+
+  if ((entity === "participantes" || entity === "usuarios") && selectedEventId) {
+    const [organizerResult, participantsResult] = await Promise.all([
+      supabaseAdmin.from("evento").select("organizador_id").eq("id", selectedEventId).maybeSingle(),
+      supabaseAdmin.from("registro_asistido").select("usuario_id").eq("evento_id", selectedEventId),
+    ]);
+
+    const relatedUserIds = [
+      organizerResult.data?.organizador_id,
+      ...(participantsResult.data ?? []).map((row) => row.usuario_id),
+    ].filter(Boolean);
+
+    query = relatedUserIds.length ? query.in("id", relatedUserIds) : query.eq("id", "00000000-0000-0000-0000-000000000000");
   }
 
   const { data, error } = await query;
