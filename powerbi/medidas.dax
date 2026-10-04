@@ -1,0 +1,45 @@
+// ============================================================================
+// Medidas DAX - Coca-Cola Event Intelligence
+// Tabla base: v_event_kpis (esquema powerbi). Funcionan para un evento o para
+// varios a la vez: suman los conteos y dividen al final, igual que las vistas.
+// Pegar cada medida en Modelado > Nueva medida.
+// Formato: las medidas "%" quedan como 0-1; aplicar formato Porcentaje (1 decimal).
+// ============================================================================
+
+Asistencia % =
+DIVIDE ( SUM ( v_event_kpis[asistentes] ), SUM ( v_event_kpis[registrados] ) )
+
+// Asistentes con al menos 1 actividad / asistentes
+Participación % =
+DIVIDE ( SUM ( v_event_kpis[asistentes_con_actividad] ), SUM ( v_event_kpis[asistentes] ) )
+
+// Asistentes con acción objetivo (conversión) / asistentes
+Conversión % =
+DIVIDE ( SUM ( v_event_kpis[conversiones] ), SUM ( v_event_kpis[asistentes] ) )
+
+// % promotores (9-10) - % detractores (0-6). Escala -100 a 100, formato número (1 decimal).
+NPS =
+VAR Respuestas = SUM ( v_event_kpis[respuestas_nps] )
+RETURN
+    IF (
+        Respuestas > 0,
+        DIVIDE ( SUM ( v_event_kpis[promotores] ) - SUM ( v_event_kpis[detractores] ), Respuestas ) * 100
+    )
+
+// Asistentes con eventos previos / asistentes totales
+Recurrencia % =
+DIVIDE ( SUM ( v_event_kpis[recurrentes] ), SUM ( v_event_kpis[asistentes] ) )
+
+// Promedio de la pregunta "general" de la encuesta (escala 1-5), ponderado por respuestas.
+Satisfacción =
+DIVIDE ( SUM ( v_event_kpis[suma_satisfaccion] ), SUM ( v_event_kpis[respuestas_satisfaccion] ) )
+
+// ---------------------------------------------------------------------------
+// Opcionales: reportes enviados desde la app
+// ---------------------------------------------------------------------------
+
+Último reporte =
+MAX ( v_report_historial[generated_at] )
+
+Reportes generados =
+DISTINCTCOUNT ( v_report_historial[report_run_id] )

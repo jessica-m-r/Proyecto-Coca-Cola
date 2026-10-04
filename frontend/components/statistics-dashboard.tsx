@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react"
 import type { EventKpis, Statistics } from "@/lib/statistics.types"
+import PowerBiReport from "@/components/powerbi-report"
+import { buildReportUrl, type PowerBiConfig } from "@/lib/powerbi"
+import type { ReportHistoryRow } from "@/lib/report-files"
 
 const number = (value: number | null | undefined) => (value ?? 0).toLocaleString("es-BO", { maximumFractionDigits: 2 })
 const measured = (value: number | null | undefined, suffix = "") => value == null ? "Sin datos" : `${number(value)}${suffix}`
+const dateTime = (value: string | null | undefined) => value ? new Date(value).toLocaleString("es-BO", { dateStyle: "medium", timeStyle: "short" }) : "—"
+const REPORT_PAGES = ["Reportes", "Reporte ejecutivo", "Power BI"]
 
 type DashboardIconName = "users" | "check" | "spark" | "chart" | "ticket" | "heart" | "download" | "arrow"
 
@@ -36,6 +41,15 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
   const [revision, setRevision] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reports, setReports] = useState<ReportHistoryRow[] | null>(null)
+  const [reportsError, setReportsError] = useState<string | null>(null)
+  const [reportRevision, setReportRevision] = useState(0)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [powerBi, setPowerBi] = useState<PowerBiConfig | null>(null)
+  const [powerBiNotice, setPowerBiNotice] = useState<string | null>(null)
+  const needsReports = REPORT_PAGES.includes(page)
 
   useEffect(() => {
     let disposed = false
@@ -72,6 +86,46 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
     }
   }, [eventId, revision])
 
+  // Historial desde v_report_historial; se actualiza junto con las estadísticas.
+  useEffect(() => {
+    if (!needsReports) return
+    let disposed = false
+    const controller = new AbortController()
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return
+      try {
+        const response = await fetch("/api/reportes", { cache: "no-store", signal: controller.signal })
+        const json = await response.json()
+        if (disposed) return
+        if (!response.ok || !json.ok) throw new Error(json.error ?? "No se pudo cargar el historial de reportes")
+        setReports(json.data.history)
+        setReportsError(null)
+      } catch (err) {
+        if (!disposed) setReportsError(err instanceof Error ? err.message : "No se pudo cargar el historial de reportes")
+      }
+    }
+    void refresh()
+    const interval = window.setInterval(() => void refresh(), 30000)
+    return () => {
+      disposed = true
+      controller.abort()
+      window.clearInterval(interval)
+    }
+  }, [needsReports, revision, reportRevision])
+
+  // Solo para el menú Exportar: saber si hay un reporte de Power BI publicado.
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch("/api/powerbi", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const json = await response.json()
+        if (!response.ok || !json.ok) return
+        setPowerBi(json.data)
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [revision])
+
   const selected = data?.selected
   const overview = page === "Vista general" || page === "Resumen ejecutivo" || page === "Power BI" || page === "Insights IA"
   const show = (...pages: string[]) => overview || pages.includes(page)
@@ -86,15 +140,54 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
     if ((selected.registrados ?? 0) > 0 && !(selected.asistentes ?? 0)) alerts.push({ tone: "yellow", title: "Sin ingresos registrados", description: "Las inscripciones aún no tienen check-in." })
   }
 
-  function exportData() {
-    if (!data) return
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `estadisticas-evento-${selected?.evento_id ?? "todos"}.json`
-    link.click()
-    URL.revokeObjectURL(url)
+  const isPowerBi = page === "Power BI"
+
+  const report = <PowerBiReport eventId={selected?.evento_id ?? null} eventName={selected?.evento ?? null} refreshKey={revision} waitingEvent={loading && !data} />
+
+  // El servidor registra el reporte en report_runs, congela los KPIs y devuelve el archivo.
+  async function exportReport(formato: "csv" | "xlsx") {
+    if (!selected?.evento_id || exporting) return
+    setExportOpen(false)
+    setExporting(true)
+    setExportError(null)
+    try {
+      const response = await fetch("/api/reportes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evento_id: selected.evento_id, formato, rol: role, pagina: page }) })
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? "No se pudo generar el reporte")
+      const name = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1] ?? `reporte-evento-${selected.evento_id}.${formato}`
+      const url = URL.createObjectURL(await response.blob())
+      const link = document.createElement("a")
+      link.href = url
+      link.download = name
+      link.click()
+      URL.revokeObjectURL(url)
+      setReportRevision((value) => value + 1)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "No se pudo generar el reporte")
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const lastReport = reports?.[0] ?? null
+
+  const powerBiUrl = powerBi?.reportUrl ? buildReportUrl(powerBi.reportUrl, powerBi.filter, selected?.evento_id ?? null) : null
+
+  // El enlace abre en pestaña nueva; el registro en report_runs va aparte para no bloquearlo.
+  async function openPowerBiReport() {
+    if (!selected?.evento_id) return
+    setExportOpen(false)
+    try {
+      const response = await fetch("/api/reportes/powerbi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evento_id: selected.evento_id, rol: role, pagina: page }) })
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? "No se pudo registrar la apertura en Power BI")
+      setReportRevision((value) => value + 1)
+    } catch (err) {
+      setPowerBiNotice(err instanceof Error ? err.message : "No se pudo registrar la apertura en Power BI")
+    }
+  }
+
+  function explainMissingPowerBi() {
+    setExportOpen(false)
+    setPowerBiNotice(powerBi?.reportError ?? "Publica el reporte en Power BI y pega la URL en POWERBI_REPORT_URL")
   }
 
   return <>
@@ -107,10 +200,21 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
           {data?.events.map((event) => <option key={event.evento_id} value={String(event.evento_id)}>{event.evento}</option>)}
         </select>
         <button className="btn btn-secondary" onClick={() => setRevision((value) => value + 1)} disabled={loading}>Actualizar</button>
-        <button className="btn btn-primary" onClick={exportData} disabled={!data}>Exportar <DashboardIcon name="download" /></button>
+        <div className="export-menu" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setExportOpen(false) }}>
+          <button className="btn btn-primary" onClick={() => setExportOpen((open) => !open)} disabled={!selected || exporting} aria-haspopup="menu" aria-expanded={exportOpen}>{exporting ? "Generando…" : "Exportar"} <DashboardIcon name="download" /></button>
+          {exportOpen && <div className="export-menu-list" role="menu" onKeyDown={(event) => { if (event.key === "Escape") setExportOpen(false) }}>
+            <button role="menuitem" onClick={() => void exportReport("csv")}>CSV<small>Para Excel o para importar en Power BI</small></button>
+            <button role="menuitem" onClick={() => void exportReport("xlsx")}>Excel (.xlsx)<small>Hoja de cálculo</small></button>
+            {powerBiUrl
+              ? <a role="menuitem" href={powerBiUrl} target="_blank" rel="noopener noreferrer" onClick={() => void openPowerBiReport()}>Abrir en Power BI<small>Reporte interactivo</small></a>
+              : <button role="menuitem" aria-disabled="true" onClick={explainMissingPowerBi}>Abrir en Power BI<small>Aún no conectado</small></button>}
+          </div>}
+        </div>
       </div>
     </div>
     {error && <div className="stats-notice stats-error" role="alert"><p>{error}</p></div>}
+    {exportError && <div className="stats-notice stats-error" role="alert"><p>{exportError}</p></div>}
+    {powerBiNotice && <p className="stats-notice" role="status">{powerBiNotice}</p>}
     {loading && <p className="stats-notice" role="status">Cargando estadísticas…</p>}
     {data && <p className="stats-updated">Última consulta: {new Date(data.updatedAt).toLocaleTimeString("es-BO")} · Se actualiza cada 30 segundos.</p>}
     {data && !selected && <div className="panel stats-notice">No tienes eventos registrados. Las estadísticas aparecerán al crear eventos y registrar su actividad.</div>}
@@ -132,6 +236,8 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
         <Metric label="CONSENTIMIENTO" value={number(selected.registros_con_consentimiento)} />
         <Metric label="META DE ASISTENCIA" value={selected.participantes_esperados ? measured(selected.pct_meta_asistentes, "%") : "Sin meta"} hint={selected.participantes_esperados ? `${number(selected.asistentes)} / ${number(selected.participantes_esperados)}` : undefined} />
       </div>}
+      {isPowerBi && <div className="pbi-last-report" role="status"><DashboardIcon name="download" /><span>Último reporte enviado a Power BI: <b>{lastReport ? dateTime(lastReport.generated_at) : reports ? "ninguno todavía" : reportsError ? "no disponible" : "cargando…"}</b>{lastReport && <small>{lastReport.evento_nombre} · {lastReport.formato?.toUpperCase()} · {lastReport.generado_por}</small>}</span></div>}
+      {isPowerBi && report}
       <div className="dashboard-grid">
         {show("Indicadores") && <article className="panel chart-panel"><div className="panel-head"><div><span>AFLUENCIA</span><h3>Ingresos por hora</h3></div><div className="legend"><i />Check-ins{peak && (peak.checkins ?? 0) > 0 && <b>Pico: {peak.franja ?? `${peak.hora_del_dia ?? ""}:00`}</b>}</div></div>
           {data.hourly.length ? <div className="chart stats-vertical-chart"><div className="chart-grid">{[0, 1, 2, 3].map((line) => <i key={line} />)}</div><div className="bars">{data.hourly.map((hour, index) => <div key={`${hour.hora}-${index}`}><span style={{ height: `${(hour.checkins ?? 0) / hourlyMax * 85}%`, minHeight: 0 }} data-value={hour.checkins ?? 0} title={`${hour.franja ?? hour.hora}: ${number(hour.checkins)} ingresos`} /><small>{hour.franja ?? (hour.hora_del_dia !== null ? `${hour.hora_del_dia}:00` : hour.hora ?? "Sin hora")}</small></div>)}</div></div> : <div className="stats-chart-empty">Sin ingresos registrados.</div>}
@@ -163,8 +269,14 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
         {alerts.length ? alerts.map((alert) => <div key={alert.title} className={`alert-${alert.tone}`}><i /><span><strong>{alert.title}</strong><small>{alert.description}</small></span></div>) : <p className="stats-panel-empty">No hay avisos pendientes según los registros del evento.</p>}
       </article></div>}
       {!isHome && show("Comparar eventos", "Reporte ejecutivo", "Reportes") && <div className="panel stats-event-table"><h3>Eventos disponibles</h3><table><thead><tr><th>Evento</th><th>Estado</th><th>Registros</th><th>Asistentes</th><th>Conversiones</th></tr></thead><tbody>{data.events.map((event: EventKpis) => <tr key={event.evento_id}><td>{event.evento}</td><td>{event.estado}</td><td>{number(event.registrados)}</td><td>{number(event.asistentes)}</td><td>{number(event.conversiones)}</td></tr>)}</tbody></table></div>}
-      {page === "Power BI" && <p className="stats-notice">Estos resultados provienen de la base de datos. La integración externa con Power BI todavía no está configurada.</p>}
+      {(page === "Reportes" || page === "Reporte ejecutivo") && <div className="panel stats-event-table report-history"><h3>Historial de reportes</h3>
+        {reportsError && <p className="stats-notice stats-error" role="alert">{reportsError}</p>}
+        {!reports && !reportsError && <p className="stats-panel-empty">Cargando historial…</p>}
+        {reports && !reports.length && <p className="stats-panel-empty">Todavía no se generaron reportes. Usa Exportar para crear el primero.</p>}
+        {reports && reports.length > 0 && <table><thead><tr><th>Fecha</th><th>Evento</th><th>Tipo</th><th>Formato</th><th>Usuario</th><th>Descargar</th></tr></thead><tbody>{reports.map((report) => <tr key={report.report_run_id}><td>{dateTime(report.generated_at)}</td><td>{report.evento_nombre}</td><td>{report.tipo_reporte?.replace(/_/g, " ")}</td><td>{report.formato?.toUpperCase()}</td><td>{report.generado_por}</td><td className="report-downloads"><a href={`/api/reportes/${report.report_run_id}?formato=csv`} download>CSV</a><a href={`/api/reportes/${report.report_run_id}?formato=xlsx`} download>Excel</a></td></tr>)}</tbody></table>}
+      </div>}
       {page === "Insights IA" && <p className="stats-notice">Mostramos las métricas registradas. El análisis con IA todavía no está configurado.</p>}
     </>}
+    {isPowerBi && !selected && report}
   </>
 }
