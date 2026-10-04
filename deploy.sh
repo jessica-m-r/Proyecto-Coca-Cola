@@ -3,6 +3,7 @@
 # Uso:
 #   ./deploy.sh             → Docker + túnel cloudflared (URL trycloudflare.com)
 #   ./deploy.sh --ngrok     → Docker + túnel ngrok (tu dominio estático, requiere sesión única)
+#   ./deploy.sh --rebuild   → fuerza reconstrucción de la imagen (tras git pull / cambios en el código)
 #   ./deploy.sh --stop      → detener túnel y contenedor
 set -euo pipefail
 
@@ -14,7 +15,9 @@ CLOUDFLARED_LOG="/tmp/opencode/cloudflared.log"
 NGROK_LOG="/tmp/opencode/ngrok.log"
 APP_URL="http://127.0.0.1:3000"
 USE_NGROK=0
+FORCE_REBUILD=0
 [[ "${1:-}" == "--ngrok" ]] && USE_NGROK=1
+[[ "${1:-}" == "--rebuild" ]] && FORCE_REBUILD=1
 
 rojo()    { printf '\033[0;31m%s\033[0m\n' "$1"; }
 verde()   { printf '\033[0;32m%s\033[0m\n' "$1"; }
@@ -42,7 +45,7 @@ fi
 
 # 2. Construir y levantar el contenedor (si ya está corriendo y sano, se reutiliza)
 azul "[1/3] Construyendo/levantando contenedor Docker..."
-if docker ps --filter "name=coca-cola-frontend" --filter "health=healthy" | grep -q coca-cola-frontend; then
+if [[ $FORCE_REBUILD -eq 0 ]] && docker ps --filter "name=coca-cola-frontend" --filter "health=healthy" | grep -q coca-cola-frontend; then
   verde "Contenedor ya está corriendo y sano; se reutiliza."
 else
   docker compose --env-file "$ENV_FILE" up -d --build
