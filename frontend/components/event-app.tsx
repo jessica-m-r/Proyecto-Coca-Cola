@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import QRCode from "qrcode"
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
+type TicketUser = { id: number; nombre: string; apellido: string }
 type IconName = "arrow" | "bell" | "calendar" | "camera" | "chart" | "check" | "chevron" | "clock" | "download" | "eye" | "filter" | "grid" | "heart" | "home" | "map" | "menu" | "plus" | "qr" | "search" | "settings" | "spark" | "ticket" | "users" | "x"
 
 const heroPhoto =
@@ -483,19 +485,78 @@ function AuthModal({
 }: {
   mode: "login" | "register"
   onClose: () => void
-  onDone: () => void
+  onDone: (user?: TicketUser) => void
 }) {
   const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const submit = (e: React.FormEvent) => {
+  const [error, setError] = useState<string | null>(null)
+  const [age, setAge] = useState("")
+  const [prefs, setPrefs] = useState<string[]>([])
+  const formData = useRef<Record<string, string>>({})
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setError(null)
+    const fd = new FormData(e.currentTarget)
+    const current = Object.fromEntries(fd.entries()) as Record<string, string>
+    current.preferencias = fd.getAll("preferencias").join(",")
+
+    if (mode === "forgot") {
+      setLoading(true)
+      window.setTimeout(() => {
+        setLoading(false)
+        onDone()
+      }, 650)
+      return
+    }
+
+    if (mode === "register" && step < 3) {
+      if (step === 1 && current.password !== current.password2) {
+        setError("Las contraseñas no coinciden")
+        return
+      }
+      if (step === 2 && !age) {
+        setError("Selecciona tu rango de edad")
+        return
+      }
+      Object.assign(formData.current, current, { age })
+      setStep(step + 1)
+      return
+    }
+
     setLoading(true)
-    window.setTimeout(() => {
+    try {
+      const payload =
+        mode === "register"
+          ? {
+              ...formData.current,
+              ...current,
+              preferencias: (current.preferencias ||
+                formData.current.preferencias ||
+                ""
+              )
+                .split(",")
+                .filter(Boolean),
+            }
+          : { email: current.email, password: current.password }
+      const res = await fetch(
+        mode === "register" ? "/api/usuarios/register" : "/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      )
+      const json = await res.json()
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Ocurrió un error, intenta de nuevo")
+      }
+      onDone(json.data ?? undefined)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ocurrió un error")
+    } finally {
       setLoading(false)
-      if (mode === "register" && step < 3) setStep(step + 1)
-      else onDone()
-    }, 650)
+    }
   }
   return (
     <div className="modal-backdrop auth-backdrop">
@@ -551,12 +612,14 @@ function AuthModal({
             <>
               <Field
                 label="Correo o celular"
+                name="email"
                 type="email"
                 placeholder="nombre@correo.com"
                 required
               />
               <Field
                 label="Contraseña"
+                name="password"
                 type="password"
                 placeholder="Mínimo 8 caracteres"
                 required
@@ -587,10 +650,11 @@ function AuthModal({
           )}
           {mode === "register" && step === 1 && (
             <div className="field-grid">
-              <Field label="Nombre" placeholder="Ej. Valeria" required />
-              <Field label="Apellido" placeholder="Ej. Rojas" required />
+              <Field label="Nombre" name="nombre" placeholder="Ej. Valeria" required />
+              <Field label="Apellido" name="apellido" placeholder="Ej. Rojas" required />
               <Field
                 label="Correo electrónico"
+                name="email"
                 type="email"
                 placeholder="nombre@correo.com"
                 help="Te enviaremos tu entrada aquí"
@@ -598,6 +662,7 @@ function AuthModal({
               />
               <Field
                 label="Celular"
+                name="celular"
                 type="tel"
                 placeholder="+591 700 00000"
                 help="Lo usaremos para WhatsApp"
@@ -605,12 +670,14 @@ function AuthModal({
               />
               <Field
                 label="Contraseña"
+                name="password"
                 type="password"
                 placeholder="8+ caracteres"
                 required
               />
               <Field
                 label="Confirmar contraseña"
+                name="password2"
                 type="password"
                 placeholder="Repite tu contraseña"
                 required
@@ -621,6 +688,7 @@ function AuthModal({
             <>
               <Field
                 label="Ciudad"
+                name="ciudad"
                 kind="select"
                 options={["Santa Cruz", "La Paz", "Cochabamba", "Sucre"]}
                 required
@@ -631,12 +699,14 @@ function AuthModal({
                 </legend>
                 <div className="chip-row">
                   {["13–17", "18–24", "25–34", "35–44", "45–54", "55+"].map(
-                    (x, i) => (
-                      <label className={i === 2 ? "selected" : ""} key={x}>
+                    (x) => (
+                      <label className={age === x ? "selected" : ""} key={x}>
                         <input
                           type="radio"
                           name="age"
-                          defaultChecked={i === 2}
+                          value={x}
+                          checked={age === x}
+                          onChange={() => setAge(x)}
                         />
                         {x}
                       </label>
@@ -656,9 +726,24 @@ function AuthModal({
                     "Sprite",
                     "Fanta",
                     "Aguas",
-                  ].map((x, i) => (
-                    <label className={i < 2 ? "selected" : ""} key={x}>
-                      <input type="checkbox" defaultChecked={i < 2} />
+                  ].map((x) => (
+                    <label
+                      className={prefs.includes(x) ? "selected" : ""}
+                      key={x}
+                    >
+                      <input
+                        type="checkbox"
+                        name="preferencias"
+                        value={x}
+                        checked={prefs.includes(x)}
+                        onChange={(e) =>
+                          setPrefs(
+                            e.target.checked
+                              ? [...prefs, x]
+                              : prefs.filter((p) => p !== x),
+                          )
+                        }
+                      />
                       <span>{x.slice(0, 2)}</span>
                       {x}
                     </label>
@@ -711,6 +796,11 @@ function AuthModal({
                     ? "Siguiente"
                     : "Crear mi cuenta"}
           </Button>
+          {error && (
+            <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
           {mode !== "forgot" && (
             <div className="switch-auth">
               {mode === "login"
@@ -743,6 +833,7 @@ function Field({
   options,
   error,
   defaultValue,
+  name,
 }: {
   label: string
   required?: boolean
@@ -753,6 +844,7 @@ function Field({
   options?: string[]
   error?: string
   defaultValue?: string
+  name?: string
 }) {
   return (
     <label className={`field ${error ? "field-error" : ""}`}>
@@ -760,19 +852,21 @@ function Field({
         {label} {required && <b>*</b>}
       </span>
       {kind === "select" ? (
-        <select required={required} defaultValue={defaultValue}>
+        <select name={name} required={required} defaultValue={defaultValue}>
           {(options || []).map((x) => (
             <option key={x}>{x}</option>
           ))}
         </select>
       ) : kind === "textarea" ? (
         <textarea
+          name={name}
           placeholder={placeholder}
           defaultValue={defaultValue}
           required={required}
         />
       ) : (
         <input
+          name={name}
           type={type}
           placeholder={placeholder}
           required={required}
@@ -784,7 +878,31 @@ function Field({
   )
 }
 
-function TicketScreen({ onClose }: { onClose: () => void }) {
+function TicketScreen({
+  user,
+  onClose,
+}: {
+  user: TicketUser | null
+  onClose: () => void
+}) {
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const nombre = user ? `${user.nombre} ${user.apellido}`.trim() : "Participante"
+  const ticketNumber = `#CCE26-${String(user?.id ?? 0).padStart(6, "0")}`
+
+  useEffect(() => {
+    QRCode.toDataURL(
+      JSON.stringify({
+        app: "coca-cola-event-intelligence",
+        usuario_id: user?.id ?? null,
+        nombre,
+        ticket: ticketNumber,
+      }),
+      { width: 240, margin: 1, color: { dark: "#1f1f1f", light: "#ffffff" } }
+    )
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(null))
+  }, [user?.id, nombre, ticketNumber])
+
   return (
     <div className="modal-backdrop">
       <div className="ticket-modal">
@@ -819,9 +937,18 @@ function TicketScreen({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div className="ticket-code">
-            <QR />
-            <strong>Valeria Rojas</strong>
-            <span>Ticket #CCE26-004812</span>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt={`QR de entrada de ${nombre}`}
+                width={140}
+                height={140}
+              />
+            ) : (
+              <QR />
+            )}
+            <strong>{nombre}</strong>
+            <span>Ticket {ticketNumber}</span>
             <small>Fexpocruz · Santa Cruz</small>
           </div>
         </div>
@@ -845,6 +972,7 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
   const [detail, setDetail] = useState(false)
   const [auth, setAuth] = useState<"login" | "register" | null>(null)
   const [ticket, setTicket] = useState(false)
+  const [ticketUser, setTicketUser] = useState<TicketUser | null>(null)
   const join = () => {
     setDetail(false)
     setAuth("register")
@@ -1061,13 +1189,16 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
         <AuthModal
           mode={auth}
           onClose={() => setAuth(null)}
-          onDone={() => {
+          onDone={(user) => {
             setAuth(null)
+            setTicketUser(user ?? null)
             setTicket(true)
           }}
         />
       )}
-      {ticket && <TicketScreen onClose={() => setTicket(false)} />}
+      {ticket && (
+        <TicketScreen user={ticketUser} onClose={() => setTicket(false)} />
+      )}
     </div>
   )
 }

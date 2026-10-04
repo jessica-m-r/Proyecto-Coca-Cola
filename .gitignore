@@ -9,3 +9,6 @@ node_modules/
 # Estado local del CLI de Supabase (enlace al proyecto remoto)
 backend/supabase/.branches
 backend/supabase/.temp
+
+# Build de Next.js
+.next/
