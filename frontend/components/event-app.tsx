@@ -11,6 +11,9 @@ const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashbo
   loading: () => <p className="stats-notice">Cargando panel…</p>,
 })
 import { MlPredictions } from "./ml-predictions"
+import { getAdminEntityForPage, getDisplayRows } from "@/lib/admin-data"
+import { getCatalogOptionsForField } from "@/lib/catalog-options"
+import { paginateRows } from "@/lib/pagination"
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
 type AccountUser = { id: number; nombre: string; apellido: string | null; email: string | null }
@@ -853,7 +856,7 @@ function Field({
   type?: string
   help?: string
   kind?: "select" | "textarea"
-  options?: string[]
+  options?: Array<string | CatalogOption>
   error?: string
   defaultValue?: string
   name?: string
@@ -864,10 +867,16 @@ function Field({
         {label} {required && <b>*</b>}
       </span>
       {kind === "select" ? (
-        <select name={name} required={required} defaultValue={defaultValue}>
-          {(options || []).map((x) => (
-            <option key={x}>{x}</option>
-          ))}
+        <select name={name} required={required} defaultValue={defaultValue ?? (options?.[0] && typeof options[0] !== "string" ? options[0].value : undefined)}>
+          {(options || []).map((option) => {
+            const value = typeof option === "string" ? option : option.value
+            const label = typeof option === "string" ? option : option.label
+            return (
+              <option key={`${name}-${value}`} value={value}>
+                {label}
+              </option>
+            )
+          })}
         </select>
       ) : kind === "textarea" ? (
         <textarea
@@ -1335,6 +1344,32 @@ const navs: Record<Exclude<Role, "cliente">, {
   ],
 }
 
+const administratorAllowedPages = [
+  "Vista general",
+  "Eventos",
+  "Usuarios y roles",
+  "Participantes",
+  "Productos",
+  "Campañas",
+  "Indicadores",
+  "Automatizaciones",
+  "Reportes",
+  "Integraciones",
+  "Power BI",
+]
+
+const organizerAllowedPages = [
+  "Vista general",
+  "Mis eventos",
+  "Participantes",
+  "Check-in QR",
+  "Actividades",
+  "Degustaciones",
+  "Encuestas",
+  "Predicciones IA",
+  "Observaciones",
+]
+
 function RoleSwitcher({
   role,
   onRole,
@@ -1502,140 +1537,91 @@ function ScannerPage() {
   )
 }
 
-const formFieldsByPage: Record<string, string[]> = {
+type CatalogOption = { value: string; label: string }
+
+type FormFieldDef = {
+  label: string
+  name: string
+  kind?: "select" | "textarea"
+  type?: string
+  required?: boolean
+  placeholder?: string
+  options?: Array<string | CatalogOption>
+  defaultValue?: string
+}
+
+const pageEntityMap: Record<string, string> = {
+  "Mis eventos": "eventos",
+  Eventos: "eventos",
+  "Usuarios y roles": "usuarios",
+  Participantes: "participantes",
+  Productos: "productos",
+  Campañas: "campanas",
+}
+
+const formFieldsByPage: Record<string, FormFieldDef[]> = {
   "Mis eventos": [
-    "Nombre del evento",
-    "Tipo de evento",
-    "Fecha y hora de inicio",
-    "Fecha y hora de fin",
-    "Lugar y dirección",
-    "Ciudad",
-    "Organizador",
-    "Responsable",
-    "Descripción",
-    "Objetivo del evento",
-    "Campaña asociada",
-    "Presupuesto (Bs)",
-    "Participantes esperados",
-    "Productos destacados",
-    "Canal o aliado",
+    { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
+    { label: "Tipo de evento", name: "tipo_evento_id", kind: "select", required: true, options: [] },
+    { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "planificado", options: ["planificado", "en_curso", "cerrado"] },
+    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local" },
+    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local" },
+    { label: "Ciudad", name: "ciudad", placeholder: "Santa Cruz" },
+    { label: "Lugar", name: "lugar", placeholder: "Plaza 24 de Septiembre" },
+    { label: "Dirección", name: "direccion", placeholder: "Av. Camacho 123" },
+    { label: "Aforo", name: "aforo", type: "number", placeholder: "350" },
+    { label: "Presupuesto (Bs)", name: "presupuesto", type: "number", placeholder: "25000" },
+    { label: "Objetivo", name: "objetivo", kind: "textarea", placeholder: "Objetivo principal del evento" },
+    { label: "Campaña asociada", name: "campana_id", kind: "select", options: [] },
+    { label: "Organizador", name: "organizador_id", placeholder: "UUID del organizador" },
   ],
   Eventos: [
-    "Nombre del evento",
-    "Tipo de evento",
-    "Fecha y hora de inicio",
-    "Lugar",
-    "Ciudad",
-    "Campaña asociada",
-    "Estado",
-  ],
-  Actividades: [
-    "Nombre de la actividad",
-    "Tipo de actividad",
-    "Descripción",
-    "Instrucciones para el participante",
-    "Evento",
-    "Horario de inicio",
-    "Horario de fin",
-    "Ubicación",
-    "Cupo máximo",
-    "Producto asociado",
-    "Encuesta asociada",
-    "Promoción asociada",
-    "Estado",
-  ],
-  Degustaciones: [
-    "Nombre del punto",
-    "Evento",
-    "Actividad asociada",
-    "Ubicación",
-    "Horario",
-    "Producto o sabor",
-    "Presentación",
-    "Stock inicial",
-    "Alerta de stock bajo",
-    "Máximo por persona",
-    "Plantilla post-degustación",
-    "Estado",
-  ],
-  Encuestas: [
-    "Nombre de encuesta",
-    "Descripción",
-    "Asignar a",
-    "Plantilla base",
-    "Mensaje de bienvenida",
-    "Mensaje de agradecimiento",
-    "Recompensa",
-    "Fecha de apertura",
-    "Fecha de cierre",
+    { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
+    { label: "Tipo de evento", name: "tipo_evento_id", kind: "select", required: true, options: [] },
+    { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "planificado", options: ["planificado", "en_curso", "cerrado"] },
+    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local" },
+    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local" },
+    { label: "Ciudad", name: "ciudad", placeholder: "La Paz" },
+    { label: "Lugar", name: "lugar", placeholder: "Centro Cultural" },
+    { label: "Campaña asociada", name: "campana_id", kind: "select", options: [] },
   ],
   "Usuarios y roles": [
-    "Nombre",
-    "Apellido",
-    "Correo",
-    "Celular",
-    "Rol",
-    "Estado",
-    "Eventos asignados",
-    "Permisos especiales",
-    "Contraseña temporal",
+    { label: "Nombre", name: "nombre", required: true, placeholder: "María" },
+    { label: "Apellido", name: "apellido", placeholder: "Rodríguez" },
+    { label: "Correo", name: "email", type: "email", required: true, placeholder: "usuario@empresa.com" },
+    { label: "Celular", name: "celular", required: true, placeholder: "+591 70000000" },
+    { label: "Rol", name: "rol", kind: "select", required: true, defaultValue: "organizador", options: ["administrador", "organizador", "marketing", "participante"] },
+    { label: "Ciudad", name: "ciudad", placeholder: "Santa Cruz" },
+    { label: "Rango de edad", name: "rango_edad", kind: "select", options: ["18-24", "25-34", "35-44", "45-54", "55+"] },
+    { label: "Género", name: "genero", placeholder: "Femenino" },
+    { label: "Ocupación", name: "ocupacion", placeholder: "Coordinadora" },
+    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
+    { label: "Acepta marketing", name: "acepta_marketing", kind: "select", defaultValue: "true", options: ["true", "false"] },
+  ],
+  Participantes: [
+    { label: "Nombre", name: "nombre", required: true, placeholder: "Ana" },
+    { label: "Apellido", name: "apellido", placeholder: "García" },
+    { label: "Correo", name: "email", type: "email", required: true, placeholder: "participante@coca.test" },
+    { label: "Celular", name: "celular", required: true, placeholder: "+591 70000000" },
+    { label: "Rol", name: "rol", kind: "select", required: true, defaultValue: "participante", options: ["participante"] },
+    { label: "Ciudad", name: "ciudad", placeholder: "Cochabamba" },
+    { label: "Rango de edad", name: "rango_edad", kind: "select", options: ["18-24", "25-34", "35-44", "45-54", "55+"] },
+    { label: "Género", name: "genero", placeholder: "Masculino" },
+    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
   ],
   Productos: [
-    "Nombre",
-    "Categoría",
-    "Marca",
-    "Presentaciones",
-    "Sabor",
-    "Descripción corta",
-    "Código interno / SKU",
-    "Estado",
+    { label: "Nombre", name: "nombre", required: true, placeholder: "Coca-Cola Original" },
+    { label: "Tipo de producto", name: "tipo_producto_id", kind: "select", required: true, options: [] },
+    { label: "Categoría", name: "categoria", placeholder: "Gaseosas" },
+    { label: "Sabor", name: "sabor", placeholder: "Original" },
+    { label: "Presentación", name: "presentacion", placeholder: "Lata 355ml" },
+    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
   ],
   Campañas: [
-    "Nombre de campaña",
-    "Código único",
-    "Objetivo",
-    "Fecha de inicio",
-    "Fecha de fin",
-    "Presupuesto",
-    "Canales",
-    "Aliados",
-    "Productos foco",
-    "Acción objetivo",
-    "Meta de conversiones",
-    "Estado",
-  ],
-  Promociones: [
-    "Nombre",
-    "Tipo de beneficio",
-    "Valor",
-    "Código",
-    "Descripción y condiciones",
-    "Eventos asociados",
-    "Campaña",
-    "Producto aplicable",
-    "Límite total",
-    "Límite por persona",
-    "Vigencia inicio",
-    "Vigencia fin",
-    "Audiencia",
-    "Estado",
-  ],
-  Automatizaciones: [
-    "Nombre",
-    "Disparador",
-    "Canales",
-    "Audiencia",
-    "Plantilla de mensaje",
-    "Programación",
-    "Notificar al equipo",
-    "Condiciones",
-  ],
-  Integraciones: [
-    "URL / endpoint",
-    "API key o token",
-    "Usuario / workspace",
-    "Frecuencia de sincronización",
-    "Tablas a exponer",
+    { label: "Nombre de campaña", name: "nombre", required: true, placeholder: "Ruta de sabores 2026" },
+    { label: "Objetivo de conversión", name: "objetivo_conversion", kind: "textarea", placeholder: "Objetivo de la campaña" },
+    { label: "Fecha de inicio", name: "fecha_inicio", type: "date" },
+    { label: "Fecha de fin", name: "fecha_fin", type: "date" },
   ],
 }
 
@@ -1647,8 +1633,87 @@ function DataPage({
   role: Exclude<Role, "cliente">
 }) {
   const [form, setForm] = useState(false),
-    [toast, setToast] = useState(false)
+    [toast, setToast] = useState(false),
+    [records, setRecords] = useState<Record<string, unknown>[]>([]),
+    [loading, setLoading] = useState(false),
+    [searchTerm, setSearchTerm] = useState(""),
+    [filterOpen, setFilterOpen] = useState(false),
+    [statusFilter, setStatusFilter] = useState<"all" | "planificado" | "en_curso" | "cerrado">("all"),
+    [selectedEventId, setSelectedEventId] = useState("all"),
+    [eventOptions, setEventOptions] = useState<Array<{ id: string; label: string }>>([]),
+    [currentPage, setCurrentPage] = useState(1)
   const fields = formFieldsByPage[page]
+  const entity = getAdminEntityForPage(page)
+  const showEventFilter = ["Usuarios y roles", "Participantes", "Productos", "Campañas"].includes(page)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedEventId, page, entity])
+
+  useEffect(() => {
+    if (!entity) {
+      setRecords([])
+      return
+    }
+
+    let active = true
+    setLoading(true)
+
+    const url = new URL(`/api/admin/${entity}`, window.location.origin)
+    if (showEventFilter && selectedEventId !== "all") {
+      url.searchParams.set("event_id", selectedEventId)
+    }
+
+    fetch(url.toString(), { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("No se pudieron cargar los registros.")
+        }
+        const body = await response.json()
+        if (active) setRecords(Array.isArray(body?.data) ? body.data : [])
+      })
+      .catch(() => {
+        if (active) setRecords([])
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [entity, selectedEventId, showEventFilter])
+
+  useEffect(() => {
+    if (!showEventFilter) {
+      setEventOptions([])
+      return
+    }
+
+    let active = true
+    fetch("/api/admin/eventos", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return
+        const body = await response.json().catch(() => ({}))
+        if (!active) return
+        const items = Array.isArray(body?.data) ? (body.data as Array<Record<string, unknown>>) : []
+        const nextOptions = items
+          .map((item: Record<string, unknown>) => ({
+            id: String(item.id ?? ""),
+            label: String(item.nombre ?? item.titulo ?? "Evento sin nombre"),
+          }))
+          .filter((item: { id: string; label: string }) => item.id)
+        setEventOptions(nextOptions)
+      })
+      .catch(() => {
+        if (active) setEventOptions([])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [showEventFilter])
+
   if (page === "Check-in QR") return <ScannerPage />
   if (page === "Predicciones IA") return <MlPredictions role={role} />
   if (form && fields)
@@ -1664,24 +1729,58 @@ function DataPage({
         }}
       />
     )
-  const rows = [
-    [
-      "Coca-Cola Experience 2026",
-      "Santa Cruz",
-      "En curso",
-      "350",
-      "18 Abr 2026",
-    ],
-    ["Ritmo Urbano Sessions", "La Paz", "Programado", "480", "26 Abr 2026"],
-    [
-      "Copa Coca-Cola Fan Zone",
-      "Cochabamba",
-      "Programado",
-      "620",
-      "03 May 2026",
-    ],
-    ["Ruta Zero Universidades", "Sucre", "Borrador", "240", "14 May 2026"],
-  ]
+
+  const isEventStatusPage = page === "Eventos" || page === "Mis eventos"
+  const detailColumnLabel = page === "Productos" ? "CATEGORÍA" : page === "Campañas" ? "OBJETIVO" : "CIUDAD"
+  const showDateColumn = page !== "Productos"
+  const tableColumnSpan = showDateColumn ? 5 : 4
+
+  const visibleRecords = records.filter((row) => {
+    const normalizedRow = row ?? {}
+    const nestedRoleName =
+      typeof normalizedRow.role === "object" && normalizedRow.role && "nombre" in normalizedRow.role
+        ? String((normalizedRow.role as Record<string, unknown>).nombre ?? "")
+        : ""
+
+    const haystack = [
+      normalizedRow.nombre,
+      normalizedRow.apellido,
+      normalizedRow.email,
+      normalizedRow.ciudad,
+      normalizedRow.lugar,
+      normalizedRow.sku,
+      normalizedRow.categoria,
+      normalizedRow.sabor,
+      normalizedRow.presentacion,
+      normalizedRow.objetivo_conversion,
+      normalizedRow.descripcion,
+      normalizedRow.status,
+      normalizedRow.estado,
+      normalizedRow.activo,
+      normalizedRow.activa,
+      normalizedRow.rol,
+      nestedRoleName,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+
+    const matchesSearch =
+      !searchTerm.trim() || haystack.includes(searchTerm.trim().toLowerCase()) || haystack.includes(searchTerm.trim().toLowerCase().replace(/\s+/g, ""))
+
+    if (!isEventStatusPage) return matchesSearch
+
+    const rawStatus = String(normalizedRow.estado ?? normalizedRow.status ?? normalizedRow.activo ?? normalizedRow.activa ?? "planificado").toLowerCase()
+    const normalizedStatus = rawStatus === "borrador" ? "planificado" : rawStatus === "activo" ? "en_curso" : rawStatus === "finalizado" || rawStatus === "cancelado" ? "cerrado" : rawStatus
+    const matchesStatus = statusFilter === "all" || normalizedStatus === statusFilter
+
+    return matchesSearch && matchesStatus
+  })
+
+  const rows = getDisplayRows(page, visibleRecords)
+  const pagination = paginateRows(rows, currentPage, 10)
+  const pageNumbers = Array.from({ length: pagination.totalPages }, (_, index) => index + 1)
+
   return (
     <>
       <div className="dashboard-title compact">
@@ -1701,7 +1800,7 @@ function DataPage({
               : `Crear ${page.toLowerCase().replace(/s$/, "")}`}
         </Button>
       </div>
-      <p className="stats-notice">Esta pantalla operativa sigue siendo una demostración. Sus formularios todavía no guardan registros en la base de datos.</p>
+      <p className="stats-notice">Los formularios de creación están alineados con la estructura real de la base de datos y se guardan en Supabase.</p>
       {page === "Actividades" && (
         <div className="metric-strip">
           {[
@@ -1718,14 +1817,68 @@ function DataPage({
         </div>
       )}
       <div className="panel table-panel">
-        <div className="table-tools">
+        <div className="table-tools" style={{ position: "relative" }}>
           <div className="search-box">
             <Icon name="search" />
-            <input placeholder={`Buscar en ${page.toLowerCase()}...`} />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={`Buscar en ${page.toLowerCase()}...`}
+            />
           </div>
-          <Button kind="secondary" icon="filter">
-            Filtros
-          </Button>
+          {showEventFilter && (
+            <div className="search-box" style={{ minWidth: 220 }}>
+              <select
+                value={selectedEventId}
+                onChange={(event) => setSelectedEventId(event.target.value)}
+                style={{ width: "100%", border: "none", background: "transparent", color: "#374151", fontSize: 14, outline: "none" }}
+              >
+                <option value="all">Todos los eventos</option>
+                {eventOptions.map((eventItem) => (
+                  <option key={eventItem.id} value={eventItem.id}>
+                    {eventItem.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {isEventStatusPage && (
+            <div style={{ position: "relative" }}>
+              <Button kind="secondary" icon="filter" onClick={() => setFilterOpen((value) => !value)}>
+                Filtros
+              </Button>
+              {filterOpen && (
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", gap: 6, zIndex: 10, minWidth: 160, boxShadow: "0 10px 25px rgba(0,0,0,0.08)" }}>
+                  {[
+                    ["all", "Todos"],
+                    ["planificado", "Planificados"],
+                    ["en_curso", "En curso"],
+                    ["cerrado", "Cerrados"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter(value as typeof statusFilter)
+                        setFilterOpen(false)
+                      }}
+                      style={{
+                        border: "none",
+                        background: statusFilter === value ? "#f1f5f9" : "transparent",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontWeight: statusFilter === value ? 700 : 500,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <Button kind="ghost" icon="download">
             Exportar
           </Button>
@@ -1735,70 +1888,92 @@ function DataPage({
             <thead>
               <tr>
                 <th>NOMBRE</th>
-                <th>CIUDAD</th>
-                <th>ESTADO</th>
-                <th>{page === "Participantes" ? "NIVEL" : "REGISTROS"}</th>
-                <th>FECHA</th>
+                <th>{detailColumnLabel}</th>
+                {!showEventFilter && <th>{isEventStatusPage ? "ESTADO" : "REGISTROS"}</th>}
+                <th>{showEventFilter ? "DETALLE" : "REGISTROS"}</th>
+                {showDateColumn && <th>FECHA</th>}
                 <th>ACCIONES</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={r[0]}>
-                  <td>
-                    <strong>
-                      {page === "Participantes"
-                        ? [
-                            "Valeria Rojas",
-                            "Diego Salvatierra",
-                            "Camila Vargas",
-                            "Nicolás Peña",
-                          ][i]
-                        : r[0]}
-                    </strong>
-                    <small>
-                      {page === "Actividades"
-                        ? "Degustación / sampling"
-                        : "Campaña Experience 2026"}
-                    </small>
-                  </td>
-                  <td>{r[1]}</td>
-                  <td>
-                    <Badge
-                      tone={
-                        r[2] === "En curso"
-                          ? "green"
-                          : r[2] === "Borrador"
-                            ? "neutral"
-                            : "yellow"
-                      }
-                    >
-                      {r[2]}
-                    </Badge>
-                  </td>
-                  <td>{r[3]}</td>
-                  <td>{r[4]}</td>
-                  <td>
-                    <button>
-                      <Icon name="eye" />
-                    </button>
-                    <button>
-                      <Icon name="menu" />
-                    </button>
+              {loading ? (
+                <tr>
+                  <td colSpan={tableColumnSpan} style={{ textAlign: "center", padding: "2rem" }}>
+                    Cargando datos...
                   </td>
                 </tr>
-              ))}
+              ) : pagination.items.length === 0 ? (
+                <tr>
+                  <td colSpan={tableColumnSpan} style={{ textAlign: "center", padding: "2rem" }}>
+                    No hay registros para mostrar.
+                  </td>
+                </tr>
+              ) : (
+                pagination.items.map((row, index) => {
+                  const itemKey =
+                    row?.raw && typeof row.raw === "object" && "id" in row.raw && row.raw.id != null
+                      ? `admin-row-${String(row.raw.id)}`
+                      : `admin-row-${page}-${index}-${String(row.name)}-${String(row.city)}-${String(row.date)}`
+
+                  return (
+                    <tr key={itemKey}>
+                      <td>
+                        <strong>{row.name}</strong>
+                      </td>
+                      <td>{row.city}</td>
+                      {!showEventFilter && (
+                        <td>
+                          <Badge
+                            tone={
+                              row.status === "activo"
+                                ? "green"
+                                : row.status === "finalizado"
+                                  ? "neutral"
+                                  : row.status === "inactivo"
+                                    ? "yellow"
+                                    : "yellow"
+                            }
+                          >
+                            {row.status}
+                          </Badge>
+                        </td>
+                      )}
+                      <td>{String(row.metric)}</td>
+                      {showDateColumn && <td>{row.date}</td>}
+                      <td>
+                        <button>
+                          <Icon name="eye" />
+                        </button>
+                        <button>
+                          <Icon name="menu" />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
         <div className="pagination">
-          <span>Mostrando 1–4 de 24 resultados</span>
+          <span>{rows.length ? `Mostrando ${rows.length} resultado${rows.length === 1 ? "" : "s"}` : "Sin resultados"}</span>
           <div>
-            <button>Anterior</button>
-            <button className="active">1</button>
-            <button>2</button>
-            <button>3</button>
-            <button>Siguiente</button>
+            <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}>
+              Anterior
+            </button>
+            {pageNumbers.map((pageNumber) => (
+              <button
+                key={pageNumber}
+                type="button"
+                className={currentPage === pageNumber ? "active" : ""}
+                onClick={() => setCurrentPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+            <button type="button" disabled={currentPage >= pagination.totalPages} onClick={() => setCurrentPage((value) => Math.min(pagination.totalPages, value + 1))}>
+              Siguiente
+            </button>
           </div>
         </div>
       </div>
@@ -1822,26 +1997,99 @@ function FormPage({
   onSave,
 }: {
   page: string
-  fields: string[]
+  fields: FormFieldDef[]
   onBack: () => void
   onSave: () => void
 }) {
-  const [step, setStep] = useState(1),
-    [loading, setLoading] = useState(false)
-  const total = page === "Mis eventos" ? 6 : 1
-  const shown = total > 1 ? fields.slice((step - 1) * 3, step * 3 + 3) : fields
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (step < total) {
-      setStep(step + 1)
-      return
+  const [loading, setLoading] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [catalogData, setCatalogData] = useState<Record<string, Array<CatalogOption>>>( {})
+
+  useEffect(() => {
+    let active = true
+
+    fetch("/api/admin/catalog", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("No se pudo cargar el catálogo")
+        }
+
+        const result = await response.json().catch(() => ({}))
+        if (!active) return
+
+        const nextCatalog: Record<string, Array<CatalogOption>> = {}
+        for (const [key, value] of Object.entries(result?.data ?? {})) {
+          nextCatalog[key] = Array.isArray(value)
+            ? value.map((item: Record<string, unknown>) => ({
+                value: String(item.id ?? item.value ?? ""),
+                label: String(item.nombre ?? item.name ?? item.label ?? item.id ?? "Sin nombre"),
+              })).filter((item) => item.value)
+            : []
+        }
+
+        setCatalogData(nextCatalog)
+      })
+      .catch(() => {
+        if (active) setCatalogData({})
+      })
+
+    return () => {
+      active = false
     }
+  }, [])
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setSubmitError(null)
     setLoading(true)
-    window.setTimeout(() => {
-      setLoading(false)
+
+    try {
+      const form = e.currentTarget
+      const formData = new FormData(form)
+      const payload: Record<string, string | boolean | number | null> = {}
+
+      formData.forEach((value, key) => {
+        if (value === "" || value instanceof File) return
+        const stringKey = String(key)
+        if (stringKey === "activo" || stringKey === "acepta_marketing" || stringKey === "activa") {
+          payload[stringKey] = value === "true"
+          return
+        }
+        if (stringKey === "aforo" || stringKey === "presupuesto" || stringKey === "precio" || stringKey === "tipo_evento_id" || stringKey === "campana_id" || stringKey === "tipo_producto_id") {
+          const parsed = Number(value)
+          payload[stringKey] = Number.isNaN(parsed) ? String(value) : parsed
+          return
+        }
+        payload[stringKey] = String(value)
+      })
+
+      const entity = pageEntityMap[page]
+      if (!entity) {
+        throw new Error("No existe la entidad para esta pantalla")
+      }
+
+      const response = await fetch(`/api/admin/${entity}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(result?.error || "No se pudo guardar el registro.")
+      }
+
       onSave()
-    }, 700)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo guardar el registro."
+      setSubmitError(message)
+    } finally {
+      setLoading(false)
+    }
   }
+
   return (
     <div className="form-page">
       <button className="back-link" onClick={onBack}>
@@ -1849,120 +2097,52 @@ function FormPage({
       </button>
       <div className="dashboard-title compact">
         <div>
-          <span>FORMULARIO · BORRADOR GUARDADO</span>
-          <h1>
-            {page === "Mis eventos" ? "Crear nuevo evento" : `Crear · ${page}`}
-          </h1>
-          <p>Los campos marcados con * son obligatorios.</p>
+          <span>FORMULARIO · BASE DE DATOS</span>
+          <h1>{page === "Mis eventos" ? "Crear nuevo evento" : `Crear · ${page}`}</h1>
+          <p>Los campos corresponden a las columnas reales de Supabase.</p>
         </div>
       </div>
-      {total > 1 && (
-        <div className="stepper">
-          {[
-            "Información",
-            "Entrada",
-            "Cronograma",
-            "Actividades",
-            "Promociones",
-            "Revisión",
-          ].map((x, i) => (
-            <button
-              className={i + 1 === step ? "active" : i + 1 < step ? "done" : ""}
-              onClick={() => i < step && setStep(i + 1)}
-              key={x}
-            >
-              <i>{i + 1 < step ? <Icon name="check" size={14} /> : i + 1}</i>
-              <span>{x}</span>
-            </button>
-          ))}
-        </div>
-      )}
+
       <form className="panel form-panel" onSubmit={submit}>
         <div className="form-title">
-          <span>
-            PASO {step}
-            {total > 1 ? ` DE ${total}` : ""}
-          </span>
-          <h3>
-            {total > 1
-              ? [
-                  "Información general",
-                  "Entrada y aforo",
-                  "Cronograma",
-                  "Actividades",
-                  "Promociones y cupones",
-                  "Metas y publicación",
-                ][step - 1]
-              : `Datos de ${page.toLowerCase()}`}
-          </h3>
-          <p>
-            Completa la información para mantener los datos listos para el
-            equipo.
-          </p>
+          <span>INFORMACIÓN</span>
+          <h3>{`Datos de ${page.toLowerCase()}`}</h3>
+          <p>Completa los campos necesarios para guardar el registro en la base de datos.</p>
         </div>
+
         <div className="admin-field-grid">
-          {shown.map((x, i) => (
-            <Field
-              key={x}
-              label={x}
-              required={i < Math.ceil(shown.length * 0.7)}
-              defaultValue={
-                i === 0
-                  ? page === "Mis eventos"
-                    ? "Coca-Cola Experience 2026"
-                    : ""
-                  : ""
-              }
-              kind={
-                x.includes("Descripción") ||
-                x.includes("Objetivo") ||
-                x.includes("Mensaje")
-                  ? "textarea"
-                  : x.includes("Tipo") ||
-                      x.includes("Estado") ||
-                      x.includes("Ciudad") ||
-                      x.includes("Campaña") ||
-                      x.includes("Rol")
-                    ? "select"
-                    : undefined
-              }
-              options={[
-                "Seleccionar opción",
-                "Activo",
-                "Programado",
-                "Santa Cruz",
-              ]}
-              error={
-                i === shown.length - 1
-                  ? "Revisa este campo antes de continuar."
-                  : undefined
-              }
-            />
-          ))}
+          {fields.map((field) => {
+            const dynamicOptions = getCatalogOptionsForField(field.name, catalogData)
+            const resolvedOptions = dynamicOptions.length > 0 ? dynamicOptions : field.options ?? []
+
+            return (
+              <Field
+                key={field.name}
+                label={field.label}
+                name={field.name}
+                required={field.required}
+                type={field.type || "text"}
+                placeholder={field.placeholder}
+                kind={field.kind}
+                defaultValue={field.defaultValue}
+                options={resolvedOptions}
+              />
+            )
+          })}
         </div>
-        {step === 3 && (
-          <div className="schedule-block">
-            <strong>Bloque de cronograma</strong>
-            <span>16:00 — 16:45 · Apertura y check-in · Acceso principal</span>
-            <button type="button">Duplicar</button>
-            <button type="button">Eliminar</button>
-          </div>
+
+        {submitError && (
+          <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {submitError}
+          </p>
         )}
+
         <div className="form-actions">
           <Button kind="ghost" onClick={onBack}>
             Cancelar
           </Button>
-          {step > 1 && (
-            <Button kind="secondary" onClick={() => setStep(step - 1)}>
-              Atrás
-            </Button>
-          )}
           <Button type="submit" disabled={loading}>
-            {loading
-              ? "Guardando..."
-              : step < total
-                ? "Guardar y continuar"
-                : "Guardar y publicar"}
+            {loading ? "Guardando..." : "Guardar y publicar"}
           </Button>
         </div>
       </form>
@@ -1980,6 +2160,18 @@ function AppShell({
   const [page, setPage] = useState(navs[role][0].label)
   const isHome = page === navs[role][0].label
   const isStats = isHome || ["Indicadores", "Embudo", "Satisfacción y NPS", "Segmentación", "Mapa de asistentes", "Comparar eventos", "Promociones", "Insights IA", "Reporte ejecutivo", "Reportes", "Power BI"].includes(page) || (role === "marketing" && page === "Productos")
+
+  useEffect(() => {
+    if (role === "administrador" && !administratorAllowedPages.includes(page)) {
+      setPage("Vista general")
+      return
+    }
+
+    if (role === "organizador" && !organizerAllowedPages.includes(page)) {
+      setPage("Vista general")
+    }
+  }, [role, page])
+
   return (
     <div className="app-shell">
       <Sidebar role={role} page={page} setPage={setPage} />
