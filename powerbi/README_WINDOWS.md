@@ -78,3 +78,7 @@ con las tarjetas de la vista "Power BI" del panel, que lee la misma `v_event_kpi
 - Para ver el reporte dentro del panel: **Archivo › Insertar informe › Sitio web o portal**,
   copia la URL en `POWERBI_EMBED_URL` del `frontend/.env` y reinicia el servidor.
   Para filtrar por evento: `POWERBI_FILTER_TABLE=v_dim_evento` y `POWERBI_FILTER_COLUMN=event_id`.
+- Para abrir el reporte desde **Exportar › Abrir en Power BI** en el panel: en Power BI
+  Service abre el reporte y copia la URL normal del navegador
+  (`https://app.powerbi.com/reports/<reportId>/<página>`) en `POWERBI_REPORT_URL` del
+  `frontend/.env` y reinicia el servidor. Sin esa variable la opción aparece deshabilitada.

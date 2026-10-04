@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import type { EventKpis, Statistics } from "@/lib/statistics.types"
 import PowerBiReport from "@/components/powerbi-report"
+import { buildReportUrl, type PowerBiConfig } from "@/lib/powerbi"
 import type { ReportHistoryRow } from "@/lib/report-files"
 
 const number = (value: number | null | undefined) => (value ?? 0).toLocaleString("es-BO", { maximumFractionDigits: 2 })
@@ -46,6 +47,8 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [powerBi, setPowerBi] = useState<PowerBiConfig | null>(null)
+  const [powerBiNotice, setPowerBiNotice] = useState<string | null>(null)
   const needsReports = REPORT_PAGES.includes(page)
 
   useEffect(() => {
@@ -110,6 +113,19 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
     }
   }, [needsReports, revision, reportRevision])
 
+  // Solo para el menú Exportar: saber si hay un reporte de Power BI publicado.
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch("/api/powerbi", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const json = await response.json()
+        if (!response.ok || !json.ok) return
+        setPowerBi(json.data)
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [revision])
+
   const selected = data?.selected
   const overview = page === "Vista general" || page === "Resumen ejecutivo" || page === "Power BI" || page === "Insights IA"
   const show = (...pages: string[]) => overview || pages.includes(page)
@@ -154,6 +170,26 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
 
   const lastReport = reports?.[0] ?? null
 
+  const powerBiUrl = powerBi?.reportUrl ? buildReportUrl(powerBi.reportUrl, powerBi.filter, selected?.evento_id ?? null) : null
+
+  // El enlace abre en pestaña nueva; el registro en report_runs va aparte para no bloquearlo.
+  async function openPowerBiReport() {
+    if (!selected?.evento_id) return
+    setExportOpen(false)
+    try {
+      const response = await fetch("/api/reportes/powerbi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evento_id: selected.evento_id, rol: role, pagina: page }) })
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? "No se pudo registrar la apertura en Power BI")
+      setReportRevision((value) => value + 1)
+    } catch (err) {
+      setPowerBiNotice(err instanceof Error ? err.message : "No se pudo registrar la apertura en Power BI")
+    }
+  }
+
+  function explainMissingPowerBi() {
+    setExportOpen(false)
+    setPowerBiNotice(powerBi?.reportError ?? "Publica el reporte en Power BI y pega la URL en POWERBI_REPORT_URL")
+  }
+
   return <>
     <div className="dashboard-title">
       <div><span>{isHome ? role === "marketing" ? "ANÁLISIS DE CAMPAÑA" : role === "administrador" ? "CONTROL CENTRAL" : "OPERACIÓN EN TIEMPO REAL" : "MEDICIÓN DEL EVENTO"}</span><h1>{isHome ? role === "marketing" ? "Resumen ejecutivo" : role === "administrador" ? "Resumen de la plataforma" : selected?.evento ?? "Vista general" : page}</h1><p>{isHome && role === "organizador" ? [selected?.fecha_inicio ? new Date(selected.fecha_inicio).toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric" }) : null, selected?.ciudad].filter(Boolean).join(" · ") : selected?.evento ?? "Resultados de tus eventos"}</p></div>
@@ -167,14 +203,18 @@ export default function StatisticsDashboard({ page = "Vista general", role = "ad
         <div className="export-menu" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setExportOpen(false) }}>
           <button className="btn btn-primary" onClick={() => setExportOpen((open) => !open)} disabled={!selected || exporting} aria-haspopup="menu" aria-expanded={exportOpen}>{exporting ? "Generando…" : "Exportar"} <DashboardIcon name="download" /></button>
           {exportOpen && <div className="export-menu-list" role="menu" onKeyDown={(event) => { if (event.key === "Escape") setExportOpen(false) }}>
-            <button role="menuitem" onClick={() => void exportReport("csv")}>CSV<small>Abre en Excel o Power BI</small></button>
+            <button role="menuitem" onClick={() => void exportReport("csv")}>CSV<small>Para Excel o para importar en Power BI</small></button>
             <button role="menuitem" onClick={() => void exportReport("xlsx")}>Excel (.xlsx)<small>Hoja de cálculo</small></button>
+            {powerBiUrl
+              ? <a role="menuitem" href={powerBiUrl} target="_blank" rel="noopener noreferrer" onClick={() => void openPowerBiReport()}>Abrir en Power BI<small>Reporte interactivo</small></a>
+              : <button role="menuitem" aria-disabled="true" onClick={explainMissingPowerBi}>Abrir en Power BI<small>Aún no conectado</small></button>}
           </div>}
         </div>
       </div>
     </div>
     {error && <div className="stats-notice stats-error" role="alert"><p>{error}</p></div>}
     {exportError && <div className="stats-notice stats-error" role="alert"><p>{exportError}</p></div>}
+    {powerBiNotice && <p className="stats-notice" role="status">{powerBiNotice}</p>}
     {loading && <p className="stats-notice" role="status">Cargando estadísticas…</p>}
     {data && <p className="stats-updated">Última consulta: {new Date(data.updatedAt).toLocaleTimeString("es-BO")} · Se actualiza cada 30 segundos.</p>}
     {data && !selected && <div className="panel stats-notice">No tienes eventos registrados. Las estadísticas aparecerán al crear eventos y registrar su actividad.</div>}

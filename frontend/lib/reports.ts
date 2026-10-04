@@ -4,7 +4,7 @@ import type { DownloadFormat, ReportHistoryRow, ReportSnapshot } from "@/lib/rep
 
 export class ReportNotFoundError extends Error {}
 
-export async function registerReport(input: { eventId: number | null; tipo: string; formato: DownloadFormat; parametros: Record<string, string | number | boolean | null>; generadoPor: string }) {
+export async function registerReport(input: { eventId: number | null; tipo: string; formato: DownloadFormat | "link"; parametros: Record<string, string | number | boolean | null>; generadoPor: string }) {
   const db = createServiceClient();
   const { data, error } = await db.rpc("registrar_reporte", {
     p_event_id: input.eventId,

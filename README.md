@@ -97,8 +97,10 @@ que sus integraciones externas no están configuradas.
 
 ## Reportes y Power BI
 
-El botón **Exportar** del panel descarga CSV o Excel del evento seleccionado y llama
-a `registrar_reporte()`, que guarda el reporte en `report_runs` y congela los KPIs
+El botón **Exportar** del panel descarga CSV o Excel del evento seleccionado, o abre
+el reporte publicado en Power BI Service (`POWERBI_REPORT_URL`) en una pestaña nueva.
+Las tres opciones llaman a `registrar_reporte()`, que guarda el reporte en `report_runs`
+(con `formato` `csv`, `xlsx` o `link`) y congela los KPIs
 de `v_event_kpis` en `report_snapshots`. La sección **Reportes** lista el historial
 (`v_report_historial`) y permite volver a descargar cada reporte con sus cifras
 congeladas. La vista **Power BI** muestra las mismas tarjetas de `v_event_kpis` y la

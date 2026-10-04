@@ -1,24 +1,32 @@
 export type PowerBiConfig = {
   embedUrl: string | null;
+  reportUrl: string | null;
   filter: { table: string; column: string } | null;
   error: string | null;
+  reportError: string | null;
 };
 
 type Env = Record<string, string | undefined>;
 
+function readHttpsUrl(raw: string | undefined, name: string) {
+  const value = raw?.trim();
+  if (!value) return { url: null, error: null };
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") throw new Error();
+    return { url: url.toString(), error: null };
+  } catch {
+    return { url: null, error: `${name} no es una URL https válida.` };
+  }
+}
+
 export function readPowerBiConfig(env: Env): PowerBiConfig {
-  const raw = env.POWERBI_EMBED_URL?.trim();
   const table = env.POWERBI_FILTER_TABLE?.trim();
   const column = env.POWERBI_FILTER_COLUMN?.trim();
   const filter = table && column ? { table, column } : null;
-  if (!raw) return { embedUrl: null, filter, error: null };
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== "https:") throw new Error();
-    return { embedUrl: url.toString(), filter, error: null };
-  } catch {
-    return { embedUrl: null, filter, error: "POWERBI_EMBED_URL no es una URL https válida." };
-  }
+  const embed = readHttpsUrl(env.POWERBI_EMBED_URL, "POWERBI_EMBED_URL");
+  const report = readHttpsUrl(env.POWERBI_REPORT_URL, "POWERBI_REPORT_URL");
+  return { embedUrl: embed.url, reportUrl: report.url, filter, error: embed.error, reportError: report.error };
 }
 
 // Power BI exige escapar los caracteres especiales de tablas y columnas como _xHHHH_.

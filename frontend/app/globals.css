@@ -162,8 +162,10 @@ footer{background:var(--red);color:#fff;padding:70px 5vw 28px;display:grid;grid-
 /* Exportar reportes e historial */
 .export-menu{position:relative}
 .export-menu-list{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.12);padding:6px;display:grid}
-.export-menu-list button{display:grid;gap:2px;text-align:left;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:700;background:none;border:0;color:var(--ink)}
-.export-menu-list button:hover,.export-menu-list button:focus-visible{background:var(--soft)}
+.export-menu-list button,.export-menu-list a{display:grid;gap:2px;text-align:left;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:700;background:none;border:0;color:var(--ink);text-decoration:none}
+.export-menu-list button:hover,.export-menu-list button:focus-visible,.export-menu-list a:hover,.export-menu-list a:focus-visible{background:var(--soft)}
+.export-menu-list [aria-disabled="true"]{color:var(--muted);cursor:not-allowed}
+.export-menu-list [aria-disabled="true"]:hover,.export-menu-list [aria-disabled="true"]:focus-visible{background:none}
 .export-menu-list small{font-weight:400;font-size:11px;color:var(--muted)}
 .pbi-last-report{display:flex;align-items:center;gap:12px;margin:0 0 18px;padding:14px 18px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:13px;color:var(--ink)}
 .pbi-last-report svg{color:var(--red);flex:none}
