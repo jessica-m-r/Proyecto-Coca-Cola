@@ -10,6 +10,7 @@ const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashbo
 })
 import { MlPredictions } from "./ml-predictions"
 import { getAdminEntityForPage, getDisplayRows } from "@/lib/admin-data"
+import { getCatalogOptionsForField } from "@/lib/catalog-options"
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
 type TicketUser = { id: number; nombre: string; apellido: string }
@@ -862,7 +863,7 @@ function Field({
   type?: string
   help?: string
   kind?: "select" | "textarea"
-  options?: string[]
+  options?: Array<string | CatalogOption>
   error?: string
   defaultValue?: string
   name?: string
@@ -873,10 +874,16 @@ function Field({
         {label} {required && <b>*</b>}
       </span>
       {kind === "select" ? (
-        <select name={name} required={required} defaultValue={defaultValue}>
-          {(options || []).map((x) => (
-            <option key={x}>{x}</option>
-          ))}
+        <select name={name} required={required} defaultValue={defaultValue ?? (options?.[0] && typeof options[0] !== "string" ? options[0].value : undefined)}>
+          {(options || []).map((option) => {
+            const value = typeof option === "string" ? option : option.value
+            const label = typeof option === "string" ? option : option.label
+            return (
+              <option key={`${name}-${value}`} value={value}>
+                {label}
+              </option>
+            )
+          })}
         </select>
       ) : kind === "textarea" ? (
         <textarea
@@ -1518,6 +1525,8 @@ function ScannerPage() {
   )
 }
 
+type CatalogOption = { value: string; label: string }
+
 type FormFieldDef = {
   label: string
   name: string
@@ -1525,7 +1534,7 @@ type FormFieldDef = {
   type?: string
   required?: boolean
   placeholder?: string
-  options?: string[]
+  options?: Array<string | CatalogOption>
   defaultValue?: string
 }
 
@@ -1541,8 +1550,8 @@ const pageEntityMap: Record<string, string> = {
 const formFieldsByPage: Record<string, FormFieldDef[]> = {
   "Mis eventos": [
     { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
-    { label: "Tipo de evento", name: "tipo_evento_id", type: "number", required: true, placeholder: "1" },
-    { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "borrador", options: ["borrador", "activo", "finalizado", "cancelado"] },
+    { label: "Tipo de evento", name: "tipo_evento_id", kind: "select", required: true, options: [] },
+    { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "planificado", options: ["planificado", "en_curso", "cerrado"] },
     { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local", required: true },
     { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local", required: true },
     { label: "Ciudad", name: "ciudad", placeholder: "Santa Cruz" },
@@ -1551,18 +1560,18 @@ const formFieldsByPage: Record<string, FormFieldDef[]> = {
     { label: "Aforo", name: "aforo", type: "number", placeholder: "350" },
     { label: "Presupuesto (Bs)", name: "presupuesto", type: "number", placeholder: "25000" },
     { label: "Objetivo", name: "objetivo", kind: "textarea", placeholder: "Objetivo principal del evento" },
-    { label: "Campaña asociada", name: "campana_id", type: "number", placeholder: "1" },
+    { label: "Campaña asociada", name: "campana_id", kind: "select", options: [] },
     { label: "Organizador", name: "organizador_id", placeholder: "UUID del organizador" },
   ],
   Eventos: [
     { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
-    { label: "Tipo de evento", name: "tipo_evento_id", type: "number", required: true, placeholder: "1" },
-    { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "borrador", options: ["borrador", "activo", "finalizado", "cancelado"] },
+    { label: "Tipo de evento", name: "tipo_evento_id", kind: "select", required: true, options: [] },
+    { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "planificado", options: ["planificado", "en_curso", "cerrado"] },
     { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local", required: true },
     { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local", required: true },
     { label: "Ciudad", name: "ciudad", placeholder: "La Paz" },
     { label: "Lugar", name: "lugar", placeholder: "Centro Cultural" },
-    { label: "Campaña asociada", name: "campana_id", type: "number", placeholder: "1" },
+    { label: "Campaña asociada", name: "campana_id", kind: "select", options: [] },
   ],
   "Usuarios y roles": [
     { label: "Nombre", name: "nombre", required: true, placeholder: "María" },
@@ -1590,7 +1599,7 @@ const formFieldsByPage: Record<string, FormFieldDef[]> = {
   ],
   Productos: [
     { label: "Nombre", name: "nombre", required: true, placeholder: "Coca-Cola Original" },
-    { label: "Tipo de producto", name: "tipo_producto_id", type: "number", required: true, placeholder: "1" },
+    { label: "Tipo de producto", name: "tipo_producto_id", kind: "select", required: true, options: [] },
     { label: "Descripción", name: "descripcion", kind: "textarea", placeholder: "Descripción del producto" },
     { label: "SKU", name: "sku", placeholder: "SKU-001" },
     { label: "Precio", name: "precio", type: "number", placeholder: "12.5" },
@@ -1616,7 +1625,10 @@ function DataPage({
   const [form, setForm] = useState(false),
     [toast, setToast] = useState(false),
     [records, setRecords] = useState<Record<string, unknown>[]>([]),
-    [loading, setLoading] = useState(false)
+    [loading, setLoading] = useState(false),
+    [searchTerm, setSearchTerm] = useState(""),
+    [filterOpen, setFilterOpen] = useState(false),
+    [statusFilter, setStatusFilter] = useState<"all" | "planificado" | "en_curso" | "cerrado">("all")
   const fields = formFieldsByPage[page]
   const entity = getAdminEntityForPage(page)
 
@@ -1665,7 +1677,35 @@ function DataPage({
       />
     )
 
-  const rows = getDisplayRows(page, records)
+  const visibleRecords = records.filter((row) => {
+    const normalizedRow = row ?? {}
+    const haystack = [
+      normalizedRow.nombre,
+      normalizedRow.email,
+      normalizedRow.ciudad,
+      normalizedRow.lugar,
+      normalizedRow.sku,
+      normalizedRow.descripcion,
+      normalizedRow.status,
+      normalizedRow.estado,
+      normalizedRow.activo,
+      normalizedRow.activa,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+
+    const matchesSearch =
+      !searchTerm.trim() || haystack.includes(searchTerm.trim().toLowerCase()) || haystack.includes(searchTerm.trim().toLowerCase().replace(/\s+/g, ""))
+
+    const rawStatus = String(normalizedRow.estado ?? normalizedRow.status ?? normalizedRow.activo ?? normalizedRow.activa ?? "planificado").toLowerCase()
+    const normalizedStatus = rawStatus === "borrador" ? "planificado" : rawStatus === "activo" ? "en_curso" : rawStatus === "finalizado" || rawStatus === "cancelado" ? "cerrado" : rawStatus
+    const matchesStatus = statusFilter === "all" || normalizedStatus === statusFilter
+
+    return matchesSearch && matchesStatus
+  })
+
+  const rows = getDisplayRows(page, visibleRecords)
 
   return (
     <>
@@ -1703,14 +1743,50 @@ function DataPage({
         </div>
       )}
       <div className="panel table-panel">
-        <div className="table-tools">
+        <div className="table-tools" style={{ position: "relative" }}>
           <div className="search-box">
             <Icon name="search" />
-            <input placeholder={`Buscar en ${page.toLowerCase()}...`} />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={`Buscar en ${page.toLowerCase()}...`}
+            />
           </div>
-          <Button kind="secondary" icon="filter">
-            Filtros
-          </Button>
+          <div style={{ position: "relative" }}>
+            <Button kind="secondary" icon="filter" onClick={() => setFilterOpen((value) => !value)}>
+              Filtros
+            </Button>
+            {filterOpen && (
+              <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", gap: 6, zIndex: 10, minWidth: 160, boxShadow: "0 10px 25px rgba(0,0,0,0.08)" }}>
+                {[
+                  ["all", "Todos"],
+                  ["planificado", "Planificados"],
+                  ["en_curso", "En curso"],
+                  ["cerrado", "Cerrados"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(value as typeof statusFilter)
+                      setFilterOpen(false)
+                    }}
+                    style={{
+                      border: "none",
+                      background: statusFilter === value ? "#f1f5f9" : "transparent",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      textAlign: "left",
+                      fontWeight: statusFilter === value ? 700 : 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Button kind="ghost" icon="download">
             Exportar
           </Button>
@@ -1741,12 +1817,17 @@ function DataPage({
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
-                  <tr key={`${row.name}-${row.date}-${row.city}`}>
-                    <td>
-                      <strong>{row.name}</strong>
-                      <small>{page === "Actividades" ? "Degustación / sampling" : "Registro real desde Supabase"}</small>
-                    </td>
+                rows.map((row, index) => {
+                  const itemKey =
+                    row?.raw && typeof row.raw === "object" && "id" in row.raw && row.raw.id != null
+                      ? `admin-row-${String(row.raw.id)}`
+                      : `admin-row-${page}-${index}-${String(row.name)}-${String(row.city)}-${String(row.date)}`
+
+                  return (
+                    <tr key={itemKey}>
+                      <td>
+                        <strong>{row.name}</strong>
+                      </td>
                     <td>{row.city}</td>
                     <td>
                       <Badge
@@ -1764,17 +1845,18 @@ function DataPage({
                       </Badge>
                     </td>
                     <td>{String(row.metric)}</td>
-                    <td>{row.date}</td>
-                    <td>
-                      <button>
-                        <Icon name="eye" />
-                      </button>
-                      <button>
-                        <Icon name="menu" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      <td>{row.date}</td>
+                      <td>
+                        <button>
+                          <Icon name="eye" />
+                        </button>
+                        <button>
+                          <Icon name="menu" />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -1816,6 +1898,40 @@ function FormPage({
 }) {
   const [loading, setLoading] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [catalogData, setCatalogData] = useState<Record<string, Array<CatalogOption>>>( {})
+
+  useEffect(() => {
+    let active = true
+
+    fetch("/api/admin/catalog", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("No se pudo cargar el catálogo")
+        }
+
+        const result = await response.json().catch(() => ({}))
+        if (!active) return
+
+        const nextCatalog: Record<string, Array<CatalogOption>> = {}
+        for (const [key, value] of Object.entries(result?.data ?? {})) {
+          nextCatalog[key] = Array.isArray(value)
+            ? value.map((item: Record<string, unknown>) => ({
+                value: String(item.id ?? item.value ?? ""),
+                label: String(item.nombre ?? item.name ?? item.label ?? item.id ?? "Sin nombre"),
+              })).filter((item) => item.value)
+            : []
+        }
+
+        setCatalogData(nextCatalog)
+      })
+      .catch(() => {
+        if (active) setCatalogData({})
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -1890,19 +2006,24 @@ function FormPage({
         </div>
 
         <div className="admin-field-grid">
-          {fields.map((field) => (
-            <Field
-              key={field.name}
-              label={field.label}
-              name={field.name}
-              required={field.required}
-              type={field.type || "text"}
-              placeholder={field.placeholder}
-              kind={field.kind}
-              defaultValue={field.defaultValue}
-              options={field.options}
-            />
-          ))}
+          {fields.map((field) => {
+            const dynamicOptions = getCatalogOptionsForField(field.name, catalogData)
+            const resolvedOptions = dynamicOptions.length > 0 ? dynamicOptions : field.options ?? []
+
+            return (
+              <Field
+                key={field.name}
+                label={field.label}
+                name={field.name}
+                required={field.required}
+                type={field.type || "text"}
+                placeholder={field.placeholder}
+                kind={field.kind}
+                defaultValue={field.defaultValue}
+                options={resolvedOptions}
+              />
+            )
+          })}
         </div>
 
         {submitError && (

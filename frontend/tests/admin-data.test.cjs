@@ -1,7 +1,11 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { getAdminEntityForPage, getDisplayRows } = require("../lib/admin-data.js");
+const {
+  getAdminEntityForPage,
+  getDisplayRows,
+  resolveUserRoleIdsForEntity,
+} = require("../lib/admin-data.js");
 
 test("las pantallas de administración usan la entidad correcta y muestran los datos reales", () => {
   assert.equal(getAdminEntityForPage("Eventos"), "eventos");
@@ -33,4 +37,16 @@ test("las pantallas de administración usan la entidad correcta y muestran los d
   assert.equal(productos[0].name, "Coca-Cola Zero");
   assert.equal(productos[0].status, "activo");
   assert.equal(productos[0].metric, 12.5);
+});
+
+test("los filtros de usuarios y participantes no dependen de un id fijo de rol", () => {
+  const roles = [
+    { id: 1, nombre: "administrador" },
+    { id: 2, nombre: "organizador" },
+    { id: 3, nombre: "marketing" },
+    { id: 7, nombre: "participante" },
+  ];
+
+  assert.deepEqual(resolveUserRoleIdsForEntity("participantes", roles), [7]);
+  assert.deepEqual(resolveUserRoleIdsForEntity("usuarios", roles), [1, 2, 3]);
 });

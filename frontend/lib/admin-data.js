@@ -11,6 +11,28 @@ function getAdminEntityForPage(page) {
   return pageEntityMap[page] || null;
 }
 
+function resolveUserRoleIdsForEntity(entity, roles = []) {
+  const safeRoles = Array.isArray(roles) ? roles : [];
+  const map = new Map(
+    safeRoles
+      .map((role) => [
+        String(role?.nombre ?? "").trim().toLowerCase(),
+        Number(role?.id),
+      ])
+      .filter(([nombre, id]) => nombre && Number.isFinite(id)),
+  );
+
+  const namesByEntity = {
+    participantes: ["participante"],
+    usuarios: ["administrador", "organizador", "marketing"],
+  };
+
+  const targetNames = namesByEntity[entity] || [];
+  return targetNames
+    .map((name) => map.get(name))
+    .filter((id) => Number.isFinite(id));
+}
+
 function normalizeStatus(value) {
   if (typeof value === "boolean") return value ? "activo" : "inactivo";
   if (typeof value === "string") return value.trim().toLowerCase();
@@ -80,5 +102,6 @@ function getDisplayRows(page, rows = []) {
 module.exports = {
   getAdminEntityForPage,
   getDisplayRows,
+  resolveUserRoleIdsForEntity,
   pageEntityMap,
 };

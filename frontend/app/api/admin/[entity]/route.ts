@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { normalizeEventStatus, stripUnsupportedInsertColumns } from "@/lib/schema-fallback";
 
 const entityMap: Record<string, string> = {
   eventos: "evento",
@@ -61,13 +62,37 @@ async function buildInsertPayload(entity: string, payload: Record<string, unknow
   );
 
   if (entity === "eventos") {
+    const allowedEstados = new Set(["planificado", "en_curso", "cerrado"]);
+    const rawEstado = typeof normalized.estado === "string" ? normalized.estado.trim().toLowerCase() : "planificado";
+    const safeEstado = normalizeEventStatus(rawEstado);
+
+    if (!allowedEstados.has(safeEstado)) {
+      return {
+        nombre: (normalized.nombre as string) || "Nuevo evento",
+        descripcion: (normalized.descripcion as string) || "Evento creado desde el panel administrativo",
+        tipo_evento_id: parseNumber(normalized.tipo_evento_id ?? normalized.tipo_evento) ?? (await getFirstValue<number>("tipo_evento", "id")) ?? 1,
+        campana_id: parseNumber(normalized.campana_id ?? normalized.campana) ?? (await getFirstValue<number>("campana", "id")) ?? 1,
+        organizador_id: (normalized.organizador_id as string) || (await getFirstValue<string>("usuario", "id")) || "00000000-0000-0000-0000-000000000000",
+        fecha_inicio: toIsoDate(normalized.fecha_inicio ?? normalized.fecha_y_hora_de_inicio),
+        fecha_fin: toIsoDate(normalized.fecha_fin ?? normalized.fecha_y_hora_de_fin),
+        ciudad: (normalized.ciudad as string) || "Santa Cruz",
+        lugar: (normalized.lugar as string) || (normalized.lugar_y_direccion as string) || "Sin lugar definido",
+        direccion: (normalized.direccion as string) || null,
+        aforo: parseNumber(normalized.aforo ?? normalized.participantes_esperados) ?? 100,
+        presupuesto: parseNumber(normalized.presupuesto) ?? 0,
+        objetivo: (normalized.objetivo as string) || (normalized.descripcion as string) || "Objetivo general",
+        activo: true,
+        estado: "planificado",
+      };
+    }
+
     return {
       nombre: (normalized.nombre as string) || "Nuevo evento",
       descripcion: (normalized.descripcion as string) || "Evento creado desde el panel administrativo",
       tipo_evento_id: parseNumber(normalized.tipo_evento_id ?? normalized.tipo_evento) ?? (await getFirstValue<number>("tipo_evento", "id")) ?? 1,
       campana_id: parseNumber(normalized.campana_id ?? normalized.campana) ?? (await getFirstValue<number>("campana", "id")) ?? 1,
       organizador_id: (normalized.organizador_id as string) || (await getFirstValue<string>("usuario", "id")) || "00000000-0000-0000-0000-000000000000",
-      estado: (normalized.estado as string) || "borrador",
+      estado: safeEstado,
       fecha_inicio: toIsoDate(normalized.fecha_inicio ?? normalized.fecha_y_hora_de_inicio),
       fecha_fin: toIsoDate(normalized.fecha_fin ?? normalized.fecha_y_hora_de_fin),
       ciudad: (normalized.ciudad as string) || "Santa Cruz",
@@ -134,12 +159,24 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "Entidad no soportada" }, { status: 404 });
   }
 
+  const { resolveUserRoleIdsForEntity } = await import("@/lib/admin-data");
+  const { data: roleRows, error: rolesError } = await supabaseAdmin
+    .from("role")
+    .select("id,nombre")
+    .in("nombre", ["administrador", "organizador", "marketing", "participante"]);
+
+  if (rolesError) {
+    return NextResponse.json({ ok: false, error: rolesError.message }, { status: 500 });
+  }
+
+  const roleIds = resolveUserRoleIdsForEntity(entity, roleRows ?? []);
   let query = supabaseAdmin.from(table).select("*");
+
   if (entity === "participantes") {
-    query = query.eq("role_id", 4);
+    query = roleIds.length ? query.in("role_id", roleIds) : query.eq("role_id", -1);
   }
   if (entity === "usuarios") {
-    query = query.neq("role_id", 4);
+    query = roleIds.length ? query.in("role_id", roleIds) : query.eq("role_id", -1);
   }
 
   const { data, error } = await query;
@@ -163,7 +200,10 @@ export async function POST(
   }
 
   const payload = await request.json().catch(() => ({}));
-  const insertPayload = await buildInsertPayload(entity, payload);
+  const insertPayload = stripUnsupportedInsertColumns(
+    await buildInsertPayload(entity, payload),
+    table,
+  );
 
   const { data, error } = await supabaseAdmin
     .from(table)
