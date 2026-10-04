@@ -116,3 +116,13 @@ test("la API de eventos no usa relaciones inexistentes como role_id en la tabla 
   assert.equal(response.body.data.length, 2);
   assert.ok(calls.some(([table, selectText]) => table === "evento" && !String(selectText).includes("role:role_id")));
 });
+
+test("las listas de eventos y usuarios calculan la paginación correctamente", async () => {
+  const pagination = load("lib/pagination.ts");
+  const result = pagination.paginateRows(Array.from({ length: 25 }, (_, index) => ({ id: index + 1 })), 2, 10);
+  assert.equal(result.page, 2);
+  assert.equal(result.totalPages, 3);
+  assert.equal(result.items.length, 10);
+  assert.equal(result.items[0].id, 11);
+  assert.equal(result.items.at(-1).id, 20);
+});

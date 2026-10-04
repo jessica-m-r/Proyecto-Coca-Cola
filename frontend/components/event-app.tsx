@@ -11,6 +11,7 @@ const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashbo
 import { MlPredictions } from "./ml-predictions"
 import { getAdminEntityForPage, getDisplayRows } from "@/lib/admin-data"
 import { getCatalogOptionsForField } from "@/lib/catalog-options"
+import { paginateRows } from "@/lib/pagination"
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
 type TicketUser = { id: number; nombre: string; apellido: string }
@@ -1630,10 +1631,15 @@ function DataPage({
     [filterOpen, setFilterOpen] = useState(false),
     [statusFilter, setStatusFilter] = useState<"all" | "planificado" | "en_curso" | "cerrado">("all"),
     [selectedEventId, setSelectedEventId] = useState("all"),
-    [eventOptions, setEventOptions] = useState<Array<{ id: string; label: string }>>([])
+    [eventOptions, setEventOptions] = useState<Array<{ id: string; label: string }>>([]),
+    [currentPage, setCurrentPage] = useState(1)
   const fields = formFieldsByPage[page]
   const entity = getAdminEntityForPage(page)
   const showUserRoleFilters = page === "Usuarios y roles" || page === "Participantes"
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedEventId, page, entity])
 
   useEffect(() => {
     if (!entity) {
@@ -1756,6 +1762,8 @@ function DataPage({
   })
 
   const rows = getDisplayRows(page, visibleRecords)
+  const pagination = paginateRows(rows, currentPage, 10)
+  const pageNumbers = Array.from({ length: pagination.totalPages }, (_, index) => index + 1)
 
   return (
     <>
@@ -1878,14 +1886,14 @@ function DataPage({
                     Cargando datos...
                   </td>
                 </tr>
-              ) : rows.length === 0 ? (
+              ) : pagination.items.length === 0 ? (
                 <tr>
                   <td colSpan={showUserRoleFilters ? 5 : 6} style={{ textAlign: "center", padding: "2rem" }}>
                     No hay registros para mostrar.
                   </td>
                 </tr>
               ) : (
-                rows.map((row, index) => {
+                pagination.items.map((row, index) => {
                   const itemKey =
                     row?.raw && typeof row.raw === "object" && "id" in row.raw && row.raw.id != null
                       ? `admin-row-${String(row.raw.id)}`
@@ -1934,11 +1942,22 @@ function DataPage({
         <div className="pagination">
           <span>{rows.length ? `Mostrando ${rows.length} resultado${rows.length === 1 ? "" : "s"}` : "Sin resultados"}</span>
           <div>
-            <button>Anterior</button>
-            <button className="active">1</button>
-            <button>2</button>
-            <button>3</button>
-            <button>Siguiente</button>
+            <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}>
+              Anterior
+            </button>
+            {pageNumbers.map((pageNumber) => (
+              <button
+                key={pageNumber}
+                type="button"
+                className={currentPage === pageNumber ? "active" : ""}
+                onClick={() => setCurrentPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+            <button type="button" disabled={currentPage >= pagination.totalPages} onClick={() => setCurrentPage((value) => Math.min(pagination.totalPages, value + 1))}>
+              Siguiente
+            </button>
           </div>
         </div>
       </div>
