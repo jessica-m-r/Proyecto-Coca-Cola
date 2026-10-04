@@ -1338,6 +1338,18 @@ const administratorAllowedPages = [
   "Power BI",
 ]
 
+const organizerAllowedPages = [
+  "Vista general",
+  "Mis eventos",
+  "Participantes",
+  "Check-in QR",
+  "Actividades",
+  "Degustaciones",
+  "Encuestas",
+  "Predicciones IA",
+  "Observaciones",
+]
+
 function RoleSwitcher({
   role,
   onRole,
@@ -1986,6 +1998,11 @@ function AppShell({
 
   useEffect(() => {
     if (role === "administrador" && !administratorAllowedPages.includes(page)) {
+      setPage("Vista general")
+      return
+    }
+
+    if (role === "organizador" && !organizerAllowedPages.includes(page)) {
       setPage("Vista general")
     }
   }, [role, page])
