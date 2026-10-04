@@ -47,3 +47,22 @@ footer{background:var(--red);color:#fff;padding:70px 5vw 28px;display:grid;grid-
   .detail-modal{max-height:96vh}.detail-hero{height:430px}.detail-hero>div{left:22px;right:22px;top:35%}.detail-hero h2{font-size:38px}.detail-layout{display:block;padding:35px 22px}.booking-card{position:static}.activity-grid{grid-template-columns:1fr}.auth-backdrop{padding:0}.auth-modal{min-height:100vh;border-radius:0;display:block}.auth-visual{display:none}.auth-form{padding:65px 22px 30px;min-height:100vh}.field-grid{grid-template-columns:1fr}.ticket-modal{border-radius:0;min-height:100vh;padding:60px 18px}.digital-ticket{grid-template-columns:1fr}.ticket-red{padding:25px}.ticket-code{padding:20px}.ticket-actions{flex-direction:column}
   .app-shell{padding-left:0;padding-bottom:67px}.sidebar{display:none}.topbar{height:62px;padding:0 16px}.topbar .mobile-menu{margin:0 12px 0 0}.top-event strong{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.top-actions>button:first-child{display:none}.dashboard-main{padding:23px 15px 45px}.dashboard-title{display:block}.dashboard-title h1{font-size:26px}.title-actions{overflow:auto;margin-top:15px}.title-actions .btn{display:none}.kpi-grid{grid-template-columns:1fr 1fr;gap:9px}.kpi-card{min-height:145px;padding:15px}.dashboard-grid,.dashboard-grid.lower{grid-template-columns:1fr}.natural-summary{align-items:flex-start}.natural-summary>button{display:none}.panel{padding:17px}.chart{height:200px}.ranking>div span{width:120px}.dashboard-title.compact{display:flex;align-items:flex-start;gap:15px}.dashboard-title.compact .btn{min-height:40px;padding:0 13px;font-size:0}.dashboard-title.compact .btn svg{font-size:initial}.table-tools{overflow:auto}.table-tools .search-box{min-width:210px}.pagination{display:block}.pagination>div{margin-top:10px}.metric-strip{grid-template-columns:1fr 1fr}.metric-strip div:nth-child(2){border-right:0}.bottom-nav{position:fixed;display:flex;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);height:66px;z-index:25;justify-content:space-around}.bottom-nav button{border:0;background:none;color:#777;display:grid;place-items:center;align-content:center;gap:4px;font-size:8px;width:20%}.bottom-nav button.active{color:var(--red)}.scanner-layout{grid-template-columns:1fr;min-height:auto}.scanner-camera{min-height:530px}.scan-box{width:260px;height:260px}.checkin-side{padding:20px}.admin-field-grid{grid-template-columns:1fr}.stepper{overflow:auto}.stepper button{min-width:75px;display:grid}.stepper button span{font-size:8px}.form-panel{padding:20px}.form-actions{position:sticky;bottom:65px;background:#fff;padding:12px 0}.indicator-grid{grid-template-columns:1fr 1fr}.insight-hero{padding:35px 18px}.insight-hero h2{font-size:31px}.insight-hero>div{border-radius:14px;display:block;background:transparent}.insight-hero input{width:100%;height:48px;border-radius:10px;margin-bottom:8px}.insight-hero .btn{width:100%}.insight-grid{grid-template-columns:1fr}.architecture{overflow:auto;justify-content:flex-start!important}.architecture>div{min-width:110px}.power-actions{overflow:auto}.pbi-frame{overflow:auto}.pbi-frame>*{min-width:760px}.role-switcher{bottom:76px;right:10px}
 }
+.auth-visual .brand {
+  min-width: 0;
+  width: 100%;
+  gap: 14px;
+}
+
+.auth-visual .brand img {
+  width: 105px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.auth-visual .brand span {
+  font-size: 9px;
+  line-height: 1.05;
+  letter-spacing: 0.03em;
+  padding-left: 14px;
+  white-space: normal;
+}

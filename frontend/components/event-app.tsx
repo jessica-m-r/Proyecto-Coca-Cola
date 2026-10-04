@@ -514,6 +514,9 @@ function AuthModal({
     const fd = new FormData(e.currentTarget)
     const current = Object.fromEntries(fd.entries()) as Record<string, string>
     current.preferencias = fd.getAll("preferencias").join(",")
+    if (current.celular !== undefined || current.phone_code !== undefined) {
+      current.celular = `${current.phone_code ?? ""}${current.celular ?? ""}`.trim()
+    }
 
     if (mode === "forgot") {
       setLoading(true)
@@ -694,12 +697,22 @@ function AuthModal({
           {mode === "register" && step === 2 && (
             <>
               <Field
-                label="Ciudad"
-                name="ciudad"
-                kind="select"
-                options={["Santa Cruz", "La Paz", "Cochabamba", "Sucre"]}
-                required
-              />
+  label="Departamento"
+  name="ciudad"
+  kind="select"
+  options={[
+    "La Paz",
+    "Cochabamba",
+    "Santa Cruz",
+    "Oruro",
+    "Potosí",
+    "Chuquisaca",
+    "Tarija",
+    "Beni",
+    "Pando"
+  ]}
+  required
+/>
               <fieldset>
                 <legend>
                   Rango de edad <b>*</b>
@@ -766,7 +779,6 @@ function AuthModal({
                 kind="select"
                 options={[
                   "Redes sociales",
-                  "Código QR",
                   "Amigo o familiar",
                   "Punto de venta",
                   "Publicidad",
@@ -775,7 +787,7 @@ function AuthModal({
                 required
               />
               <div className="promo-field">
-                <Field label="Código promocional" placeholder="EXPERIENCE26" />
+                <Field label="Código promocional (opcional) " placeholder="EXPERIENCE26" />
                 <Button kind="secondary">Validar</Button>
               </div>
               <label className="check-card">
@@ -900,6 +912,7 @@ function PhoneField() {
   }}
 >
         <select
+          name="phone_code"
           defaultValue="+591"
           aria-label="Código de país"
           style={{ width: "100%" }}
@@ -921,6 +934,7 @@ function PhoneField() {
 
         <input
           type="tel"
+          name="celular"
           placeholder="Número de celular"
           required
           style={{ width: "100%", minWidth: 0 }}
