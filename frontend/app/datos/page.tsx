@@ -3,20 +3,20 @@ import { FunnelChart } from "./funnel-chart";
 
 type EventKpis = {
   evento_id: string;
-  evento_nombre: string;
-  evento_estado: string;
+  evento: string;
+  estado: string;
   tipo_evento: string | null;
   campana: string | null;
   fecha_inicio: string;
-  total_registrados: number;
-  total_asistentes: number;
+  registrados: number;
+  asistentes: number;
   pct_asistencia: number;
-  total_interacciones: number;
-  indice_agrado: number | null;
-  nps_promedio: number;
-  total_ventas: number;
-  ingresos_totales: number;
-  pct_canje_cupones: number;
+  interacciones_producto: number;
+  indice_satisfaccion: number | null;
+  nps: number;
+  ventas_atribuibles: number;
+  monto_ventas: number;
+  canjes: number;
 };
 
 type FunnelLevel = {
@@ -24,7 +24,7 @@ type FunnelLevel = {
   nivel: number;
   etapa: string;
   personas: number;
-  pct_sobre_registrados: number | null;
+  pct_sobre_visitantes: number | null;
 };
 
 export const dynamic = "force-dynamic";
@@ -55,8 +55,9 @@ async function DataView() {
         <p className="font-medium">No se pudieron cargar los datos</p>
         <p className="mt-1 font-mono text-xs">{message}</p>
         <p className="mt-2">
-          Verifica que Supabase local esté arriba (<code>supabase start</code>) y
-          que las migraciones estén aplicadas (<code>npm run db:reset</code>).
+          Verifica las credenciales de Supabase en{" "}
+          <code>frontend/.env.local</code> y que el proyecto remoto esté
+          disponible.
         </p>
       </div>
     );
@@ -80,21 +81,21 @@ async function DataView() {
   return (
     <div className="space-y-10">
       <section>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-          {featured.evento_nombre}
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
+          {featured.evento}
         </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Kpi label="Registrados" value={featured.total_registrados} />
+          <Kpi label="Registrados" value={featured.registrados} />
           <Kpi
             label="Asistentes"
-            value={featured.total_asistentes}
+            value={featured.asistentes}
             hint={`${featured.pct_asistencia}% asistencia`}
           />
-          <Kpi label="NPS promedio" value={featured.nps_promedio} />
+          <Kpi label="NPS promedio" value={featured.nps} />
           <Kpi
             label="Ingresos"
-            value={`$${Number(featured.ingresos_totales).toLocaleString("es-CO")}`}
-            hint={`${featured.total_ventas} ventas`}
+            value={`$${Number(featured.monto_ventas).toLocaleString("es-CO")}`}
+            hint={`${featured.ventas_atribuibles} ventas`}
           />
         </div>
       </section>
@@ -107,7 +108,7 @@ async function DataView() {
           data={featuredFunnel.map((f) => ({
             etapa: f.etapa,
             personas: f.personas,
-            pct: f.pct_sobre_registrados ?? 0,
+            pct: f.pct_sobre_visitantes ?? 0,
           }))}
         />
       </section>
@@ -124,8 +125,8 @@ async function DataView() {
                 <Th>Estado</Th>
                 <Th>Registrados</Th>
                 <Th>Asistencia</Th>
-                <Th>Agrado</Th>
-                <Th>Canje cupones</Th>
+                <Th>Satisfacción</Th>
+                <Th>Canjes</Th>
               </tr>
             </thead>
             <tbody>
@@ -134,12 +135,12 @@ async function DataView() {
                   key={k.evento_id}
                   className="border-t border-neutral-200 dark:border-neutral-800"
                 >
-                  <Td>{k.evento_nombre}</Td>
-                  <Td>{k.evento_estado}</Td>
-                  <Td>{k.total_registrados}</Td>
+                  <Td>{k.evento}</Td>
+                  <Td>{k.estado}</Td>
+                  <Td>{k.registrados}</Td>
                   <Td>{k.pct_asistencia}%</Td>
-                  <Td>{k.indice_agrado ?? "—"}%</Td>
-                  <Td>{k.pct_canje_cupones}%</Td>
+                  <Td>{k.indice_satisfaccion ?? "—"}</Td>
+                  <Td>{k.canjes}</Td>
                 </tr>
               ))}
             </tbody>
