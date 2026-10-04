@@ -1639,9 +1639,6 @@ function DataPage({
     [toast, setToast] = useState(false)
   const fields = formFieldsByPage[page]
   if (page === "Check-in QR") return <ScannerPage />
-  if (page === "Power BI") return <PowerBI />
-  if (page === "Insights IA") return <InsightsPage />
-  if (page === "Indicadores") return <IndicatorsPage />
   if (page === "Predicciones IA") return <MlPredictions role={role} />
   if (form && fields)
     return (
