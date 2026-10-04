@@ -48,3 +48,51 @@ El enlace con el proyecto remoto se guarda en `backend/supabase/.temp/`
 
 Las migraciones ya aplicadas en el remoto no se editan: los cambios de esquema
 van en una migración nueva.
+
+## Estadísticas conectadas a Supabase
+
+Los resúmenes de organizador, administrador y marketing consultan
+`GET /api/estadisticas`. También lo usan Indicadores, Embudo, Productos de
+marketing, Satisfacción y NPS, Segmentación, Mapa de asistentes, Comparar
+eventos y reportes. Se actualizan cada 30 segundos mientras la pestaña está
+visible; el botón Actualizar permite consultarlos inmediatamente.
+
+Por ahora las estadísticas y `/datos` son accesibles sin iniciar sesión,
+mediante el selector de vistas de demostración. Las tres vistas permiten
+consultar todos los eventos. Esta conexión está separada del trabajo de
+inicio de sesión; no añade cookies, rutas de sesión ni cambios al login.
+
+Las consultas usan las vistas del esquema remoto descrito en
+`frontend/lib/database.types.ts`: `v_event_kpis`, `v_funnel_levels`,
+`v_hourly_traffic`, `v_activity_performance`, `v_product_interest` y `v_city_map`.
+Las claves privadas se utilizan únicamente en el servidor. Las consultas
+están paginadas y no exponen filas personales de participantes.
+
+### Cómo se generan nuevas estadísticas
+
+Las métricas cambian cuando se guardan registros efectivos en la base:
+
+| Acción | Tabla que alimenta las estadísticas |
+| --- | --- |
+| Crear un evento y asignar responsable | `evento` |
+| Inscribir una persona en un evento | `registro_asistido` |
+| Registrar ingreso | `check_in`, relacionado mediante `registro_id` |
+| Registrar participación en una actividad | `log_activity` |
+| Registrar degustación o interés | `producto_interaccion` |
+| Guardar encuesta o evaluación | `surveys` / `calificacion`, según la métrica |
+| Registrar compra o canje | `venta` / `cupon` |
+
+Crear una cuenta en `usuario` **no equivale a inscribirse en un evento**:
+también hace falta crear su `registro_asistido`. Las vistas calculan los
+resultados sobre esos registros, sin almacenar cifras manuales en el frontend.
+Sin eventos se muestra un estado vacío; las métricas sin actividad muestran
+cero y la satisfacción sin encuestas indica "Sin encuestas".
+
+Esta conexión no inserta datos de prueba ni convierte los formularios de
+demostración en operaciones de escritura: crear eventos, inscripciones y
+check-in desde esos formularios todavía requiere implementar sus endpoints.
+El lector QR público lee el contenido del código, pero no registra asistencia.
+Power BI e Insights IA ahora muestran las estadísticas registradas y explican
+que sus integraciones externas no están configuradas.
+
+Validación local: `npm run typecheck`, `npm run lint`, `npm test` y `npm run build`.
