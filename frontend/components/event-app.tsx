@@ -1,8 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import QRCode from "qrcode"
+import { useCallback, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
+import QRCode from "qrcode"
+import { demoQrPayload, enrollDemoEvent, readDemoTickets, type DemoTicket } from "@/lib/demo-tickets"
+import { loginSchema, registerSchema } from "@/lib/auth/forms"
 import QrScannerModal from "@/components/qr-scanner-modal"
 
 const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashboard"), {
@@ -10,7 +12,7 @@ const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashbo
 })
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
-type TicketUser = { id: number; nombre: string; apellido: string }
+type AccountUser = { id: number; nombre: string; apellido: string | null; email: string | null }
 type IconName = "arrow" | "bell" | "calendar" | "camera" | "chart" | "check" | "chevron" | "clock" | "download" | "eye" | "filter" | "grid" | "heart" | "home" | "map" | "menu" | "plus" | "qr" | "search" | "settings" | "spark" | "ticket" | "users" | "x"
 
 const heroPhoto =
@@ -216,31 +218,9 @@ function Badge({
   return <span className={`badge badge-${tone}`}>{children}</span>
 }
 
-function QR({ small = false }: { small?: boolean }) {
-  const cells = [
-    0, 1, 2, 4, 5, 6, 8, 10, 12, 13, 14, 16, 17, 18, 20, 22, 24, 25, 26, 28, 30,
-    32, 33, 34, 36, 38, 40, 41, 42, 44, 46, 48, 49, 50, 52, 53, 54, 56, 58, 60,
-    62, 64, 65, 66, 68, 70, 72, 73, 74, 76, 78, 80,
-  ]
-  return (
-    <div
-      className={`qr ${small ? "qr-small" : ""}`}
-      aria-label="Código QR de demostración"
-    >
-      {Array.from({ length: 81 }, (_, i) => (
-        <i
-          key={i}
-          className={
-            cells.includes(i) || (i * 7 + (i % 5)) % 11 < 3 ? "on" : ""
-          }
-        />
-      ))}
-    </div>
-  )
-}
-
 const events = [
   {
+    id: "experience-2026",
     title: "Coca-Cola Experience 2026",
     type: "Experiencia de marca",
     date: "18 ABR",
@@ -252,6 +232,7 @@ const events = [
     image: eventPhotos[0],
   },
   {
+    id: "ritmo-urbano",
     title: "Ritmo Urbano Sessions",
     type: "Concierto",
     date: "26 ABR",
@@ -263,6 +244,7 @@ const events = [
     image: eventPhotos[1],
   },
   {
+    id: "fan-zone",
     title: "Copa Coca-Cola Fan Zone",
     type: "Deportivo",
     date: "03 MAY",
@@ -278,7 +260,13 @@ const events = [
 function ClientNavbar({
   onLogin,
   onRole,
+  user,
+  loading,
+  onLogout,
 }: {
+  user: AccountUser | null
+  loading: boolean
+  onLogout: () => void
   onLogin: (mode: "login" | "register") => void
   onRole: (r: Role) => void
 }) {
@@ -288,13 +276,21 @@ function ClientNavbar({
       <Logo />
       <nav>
         <a href="#eventos">Eventos</a>
+        <a href="#tickets">Tus tickets</a>
         <a href="#social">Redes sociales</a>
       </nav>
       <div className="nav-actions">
-        <Button kind="ghost" onClick={() => onLogin("login")}>
-          Iniciar sesión
-        </Button>
-        <Button onClick={() => onLogin("register")}>Crear cuenta</Button>
+        {loading ? <span role="status">Cargando sesión…</span> : user ? (
+          <>
+            <span className="account-greeting">Hola, {user.nombre}</span>
+            <Button kind="ghost" onClick={onLogout}>Cerrar sesión</Button>
+          </>
+        ) : (
+          <>
+            <Button kind="ghost" onClick={() => onLogin("login")}>Iniciar sesión</Button>
+            <Button onClick={() => onLogin("register")}>Crear cuenta</Button>
+          </>
+        )}
       </div>
       <button
         className="mobile-menu"
@@ -306,8 +302,19 @@ function ClientNavbar({
       {open && (
         <div className="mobile-nav">
           <a href="#eventos">Eventos</a>
-          <a href="#social">Redes sociales</a>
-          <Button onClick={() => onLogin("login")}>Iniciar sesión</Button>
+          <a href="#tickets">Tus tickets</a>
+        <a href="#social">Redes sociales</a>
+          {loading ? <span role="status">Cargando sesión…</span> : user ? (
+            <>
+              <span>Hola, {user.nombre}</span>
+              <Button kind="ghost" onClick={() => { setOpen(false); onLogout() }}>Cerrar sesión</Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => { setOpen(false); onLogin("login") }}>Iniciar sesión</Button>
+              <Button onClick={() => { setOpen(false); onLogin("register") }}>Crear cuenta</Button>
+            </>
+          )}
           <button onClick={() => onRole("organizador")}>
             Vista organizador
           </button>
@@ -363,9 +370,13 @@ function EventCard({
 }
 
 function EventDetail({
+  event,
+  enrolled,
   onClose,
   onJoin,
 }: {
+  event: typeof events[number]
+  enrolled: boolean
   onClose: () => void
   onJoin: () => void
 }) {
@@ -376,13 +387,11 @@ function EventDetail({
           <Icon name="x" />
         </button>
         <div className="detail-hero">
-          <img src={heroPhoto} alt="Concierto de Coca-Cola Experience 2026" />
+          <img src={event.image} alt={event.title} />
           <div>
-            <Badge tone="red">EXPERIENCIA DE MARCA</Badge>
+            <Badge tone="red">{event.type}</Badge>
             <h2>
-              Coca-Cola
-              <br />
-              Experience 2026
+              {event.title}
             </h2>
             <p>
               Una tarde para descubrir nuevos sabores, música en vivo y
@@ -402,7 +411,7 @@ function EventDetail({
                 aún más.
               </p>
             </section>
-            <section>
+            {event.id === "experience-2026" && <section>
               <span className="section-kicker">CRONOGRAMA</span>
               <div className="timeline">
                 {[
@@ -437,7 +446,7 @@ function EventDetail({
                   </div>
                 ))}
               </div>
-            </section>
+            </section>}
             <section>
               <span className="section-kicker">ACTIVIDADES</span>
               <div className="activity-grid">
@@ -457,32 +466,31 @@ function EventDetail({
             </section>
           </main>
           <aside className="booking-card">
-            <Badge tone="green">GRATIS</Badge>
+            <Badge tone="green">{event.price}</Badge>
             <h3>Reserva tu lugar</h3>
             <div>
               <Icon name="calendar" />
               <span>
-                <strong>Sábado, 18 de abril</strong>
-                <small>16:00 — 22:00</small>
+                <strong>{event.date} · 2026</strong>
+                <small>{event.time}</small>
               </span>
             </div>
             <div>
               <Icon name="map" />
               <span>
-                <strong>Fexpocruz</strong>
-                <small>Santa Cruz de la Sierra</small>
+                <strong>{event.place}</strong>
               </span>
             </div>
             <div className="capacity">
               <span>
-                <b>48</b> cupos disponibles
+                <b>{event.spots}</b> cupos disponibles
               </span>
               <div>
                 <i />
               </div>
             </div>
             <Button onClick={onJoin} icon="arrow">
-              Inscribirme ahora
+              {enrolled ? "Ver mi ticket" : "Inscribirme ahora"}
             </Button>
             <small>Entrada personal. Recibirás tu QR al confirmar.</small>
           </aside>
@@ -493,23 +501,26 @@ function EventDetail({
 }
 
 function AuthModal({
-  mode: initialMode,
+  mode,
+  onModeChange,
   onClose,
   onDone,
 }: {
   mode: "login" | "register"
+  onModeChange: (mode: "login" | "register") => void
   onClose: () => void
-  onDone: (user?: TicketUser) => void
+  onDone: (user: AccountUser, created: boolean) => void
 }) {
-  const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [age, setAge] = useState("")
   const [prefs, setPrefs] = useState<string[]>([])
-  const formData = useRef<Record<string, string>>({})
+  const [promoStatus, setPromoStatus] = useState<string | null>(null)
+  const [registrationData, setRegistrationData] = useState<Record<string, string>>({})
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (loading) return
     setError(null)
     const fd = new FormData(e.currentTarget)
     const current = Object.fromEntries(fd.entries()) as Record<string, string>
@@ -518,57 +529,60 @@ function AuthModal({
       current.celular = `${current.phone_code ?? ""}${current.celular ?? ""}`.trim()
     }
 
-    if (mode === "forgot") {
-      setLoading(true)
-      window.setTimeout(() => {
-        setLoading(false)
-        onDone()
-      }, 650)
-      return
-    }
-
     if (mode === "register" && step < 3) {
       if (step === 1 && current.password !== current.password2) {
         setError("Las contraseñas no coinciden")
+        return
+      }
+      if (step === 1 && (current.password.length < 8 || current.password.length > 256)) {
+        setError("La contraseña debe tener entre 8 y 256 caracteres")
         return
       }
       if (step === 2 && !age) {
         setError("Selecciona tu rango de edad")
         return
       }
-      Object.assign(formData.current, current, { age })
+      setRegistrationData((saved) => ({ ...saved, ...current, age }))
       setStep(step + 1)
       return
     }
 
-    setLoading(true)
     try {
       const payload =
         mode === "register"
           ? {
-              ...formData.current,
+              ...registrationData,
               ...current,
               preferencias: (current.preferencias ||
-                formData.current.preferencias ||
+                registrationData.preferencias ||
                 ""
               )
                 .split(",")
                 .filter(Boolean),
             }
-          : { email: current.email, password: current.password }
+          : { email: current.email, password: current.password, remember: fd.has("remember") }
+      const validated = mode === "register" ? registerSchema.safeParse(payload) : loginSchema.safeParse(payload)
+      if (!validated.success) {
+        if (mode === "register") setStep(1)
+        setError(validated.error.issues[0]?.message ?? "Completa los datos de tu cuenta")
+        return
+      }
+      setLoading(true)
       const res = await fetch(
         mode === "register" ? "/api/usuarios/register" : "/api/auth/login",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(validated.data),
         }
       )
       const json = await res.json()
       if (!res.ok || !json.ok) {
         throw new Error(json.error || "Ocurrió un error, intenta de nuevo")
       }
-      onDone(json.data ?? undefined)
+      if (!json.data?.id) throw new Error("No se pudo cargar tu cuenta")
+      setRegistrationData({})
+      onDone(json.data, mode === "register")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ocurrió un error")
     } finally {
@@ -590,7 +604,7 @@ function AuthModal({
           </div>
           <small>Medir. Entender. Mejorar cada experiencia.</small>
         </div>
-        <form onSubmit={submit} className="auth-form">
+        <form key={`${mode}-${step}`} onSubmit={submit} className="auth-form">
           <button
             className="modal-close"
             onClick={onClose}
@@ -610,9 +624,7 @@ function AuthModal({
           <h2>
             {mode === "login"
               ? "Bienvenido de nuevo"
-              : mode === "forgot"
-                ? "Recupera tu acceso"
-                : step === 1
+              : step === 1
                   ? "Crea tu cuenta"
                   : step === 2
                     ? "Cuéntanos sobre ti"
@@ -621,14 +633,12 @@ function AuthModal({
           <p>
             {mode === "login"
               ? "Tus entradas, cupones y experiencias están aquí."
-              : mode === "forgot"
-                ? "Te enviaremos un código de 6 dígitos."
-                : "Personaliza tu experiencia Coca-Cola."}
+              : "Personaliza tu experiencia Coca-Cola."}
           </p>
           {mode === "login" && (
             <>
               <Field
-                label="Correo o celular"
+                label="Correo electrónico"
                 name="email"
                 type="email"
                 placeholder="nombre@correo.com"
@@ -643,51 +653,36 @@ function AuthModal({
               />
               <div className="form-inline">
                 <label>
-                  <input type="checkbox" /> Recordarme
+                  <input type="checkbox" name="remember" /> Recordarme
                 </label>
-                <button type="button" onClick={() => setMode("forgot")}>
-                  Olvidé mi contraseña
-                </button>
-              </div>
-            </>
-          )}
-          {mode === "forgot" && (
-            <>
-              <Field
-                label="Correo o celular"
-                type="email"
-                placeholder="nombre@correo.com"
-                required
-              />
-              <div className="info-box">
-                Usaremos el canal asociado a tu cuenta. El código vence en 10
-                minutos.
               </div>
             </>
           )}
           {mode === "register" && step === 1 && (
             <div className="field-grid">
-              <Field label="Nombre" name="nombre" placeholder="Ej. Valeria" required />
-              <Field label="Apellido" name="apellido" placeholder="Ej. Rojas" required />
+              <Field label="Nombre" name="nombre" defaultValue={registrationData.nombre} placeholder="Ej. Valeria" required />
+              <Field label="Apellido" name="apellido" defaultValue={registrationData.apellido} placeholder="Ej. Rojas" required />
               <Field
                 label="Correo electrónico"
                 name="email"
                 type="email"
                 placeholder="nombre@correo.com"
-                help="Te enviaremos tu entrada aquí"
+                defaultValue={registrationData.email}
                 required
               />
-             <PhoneField />
+             <PhoneField defaultValue={registrationData.celular} phoneCode={registrationData.phone_code} />
               <Field
                 label="Contraseña"
                 name="password"
                 type="password"
+                defaultValue={registrationData.password}
                 placeholder="8+ caracteres"
                 required
               />
               <Field
                 label="Confirmar contraseña"
                 name="password2"
+                defaultValue={registrationData.password2}
                 type="password"
                 placeholder="Repite tu contraseña"
                 required
@@ -699,6 +694,7 @@ function AuthModal({
               <Field
   label="Departamento"
   name="ciudad"
+  defaultValue={registrationData.ciudad}
   kind="select"
   options={[
     "La Paz",
@@ -736,7 +732,7 @@ function AuthModal({
               </fieldset>
               <fieldset>
                 <legend>
-                  Preferencias de producto <b>*</b>
+                  Preferencias de producto (opcional)
                 </legend>
                 <div className="preference-grid">
                   {[
@@ -774,26 +770,16 @@ function AuthModal({
           )}
           {mode === "register" && step === 3 && (
             <>
-              <Field
-                label="¿Cómo te enteraste?"
-                kind="select"
-                options={[
-                  "Redes sociales",
-                  "Amigo o familiar",
-                  "Punto de venta",
-                  "Publicidad",
-                  "Evento anterior",
-                ]}
-                required
-              />
+              <Field label="¿Dónde nos conociste?" name="fuente" kind="select" options={["Redes sociales", "Amigo o familiar", "Punto de venta", "Publicidad", "Evento anterior"]} required />
               <div className="promo-field">
-                <Field label="Código promocional (opcional) " placeholder="EXPERIENCE26" />
-                <Button kind="secondary">Validar</Button>
+                <Field label="Código promocional (opcional)" name="codigo_promocional" placeholder="EXPERIENCE26" />
+                <button type="button" className="btn btn-secondary" onClick={(e) => {
+                  const form = e.currentTarget.closest("form")
+                  const code = form ? String(new FormData(form).get("codigo_promocional") ?? "").trim().toUpperCase() : ""
+                  setPromoStatus(!code ? "Ingresa un código" : code === "EXPERIENCE26" ? "Código de ejemplo válido" : "Código no válido")
+                }}>Validar</button>
               </div>
-              <label className="check-card">
-                <input type="checkbox" /> Quiero recibir promociones y novedades
-                por correo, WhatsApp o notificaciones.
-              </label>
+              {promoStatus && <p role="status">{promoStatus}</p>}
               <label className="check-card">
                 <input type="checkbox" required /> Acepto los términos y la
                 política de privacidad. <b>*</b>
@@ -809,27 +795,33 @@ function AuthModal({
               ? "Procesando..."
               : mode === "login"
                 ? "Iniciar sesión"
-                : mode === "forgot"
-                  ? "Enviar código"
-                  : step < 3
+                : step < 3
                     ? "Siguiente"
                     : "Crear mi cuenta"}
           </Button>
+          {mode === "register" && step > 1 && (
+            <Button kind="ghost" disabled={loading} onClick={() => { setStep(step - 1); setError(null) }}>Volver</Button>
+          )}
           {error && (
             <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </p>
           )}
-          {mode !== "forgot" && (
+          {(
             <div className="switch-auth">
               {mode === "login"
                 ? "¿Aún no tienes cuenta?"
                 : "¿Ya tienes una cuenta?"}
               <button
                 type="button"
+                disabled={loading}
                 onClick={() => {
-                  setMode(mode === "login" ? "register" : "login")
+                  onModeChange(mode === "login" ? "register" : "login")
                   setStep(1)
+                  setError(null)
+                  setRegistrationData({})
+                  setAge("")
+                  setPrefs([])
                 }}
               >
                 {mode === "login" ? "Crear cuenta" : "Iniciar sesión"}
@@ -896,7 +888,7 @@ function Field({
     </label>
   )
 }
-function PhoneField() {
+function PhoneField({ defaultValue, phoneCode = "+591" }: { defaultValue?: string; phoneCode?: string }) {
   return (
     <label className="field">
       <span>
@@ -913,7 +905,7 @@ function PhoneField() {
 >
         <select
           name="phone_code"
-          defaultValue="+591"
+          defaultValue={phoneCode}
           aria-label="Código de país"
           style={{ width: "100%" }}
         >
@@ -935,121 +927,118 @@ function PhoneField() {
         <input
           type="tel"
           name="celular"
+          defaultValue={defaultValue?.startsWith(phoneCode) ? defaultValue.slice(phoneCode.length) : defaultValue}
           placeholder="Número de celular"
           required
           style={{ width: "100%", minWidth: 0 }}
         />
       </div>
 
-      <small>Lo usaremos para WhatsApp</small>
     </label>
   )
 }
 
-function TicketScreen({
-  user,
-  onClose,
-}: {
-  user: TicketUser | null
-  onClose: () => void
-}) {
+function TicketScreen({ ticket, onClose }: { ticket: DemoTicket; onClose: () => void }) {
+  const event = events.find((event) => event.id === ticket.eventId)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const nombre = user ? `${user.nombre} ${user.apellido}`.trim() : "Participante"
-  const ticketNumber = `#CCE26-${String(user?.id ?? 0).padStart(6, "0")}`
-
+  const [qrError, setQrError] = useState(false)
   useEffect(() => {
-    QRCode.toDataURL(
-      JSON.stringify({
-        app: "coca-cola-event-intelligence",
-        usuario_id: user?.id ?? null,
-        nombre,
-        ticket: ticketNumber,
-      }),
-      { width: 240, margin: 1, color: { dark: "#1f1f1f", light: "#ffffff" } }
-    )
-      .then(setQrDataUrl)
-      .catch(() => setQrDataUrl(null))
-  }, [user?.id, nombre, ticketNumber])
-
-  return (
-    <div className="modal-backdrop">
-      <div className="ticket-modal">
-        <button className="modal-close" onClick={onClose}>
-          <Icon name="x" />
-        </button>
-        <div className="success-mark">
-          <Icon name="check" size={32} />
-        </div>
-        <span className="section-kicker">INSCRIPCIÓN CONFIRMADA</span>
-        <h2>
-          Tu próxima experiencia
-          <br />
-          ya está en camino.
-        </h2>
-        <div className="digital-ticket">
-          <div className="ticket-red">
-            <Logo light />
-            <span>ENTRADA DIGITAL</span>
-            <h3>
-              Coca-Cola
-              <br />
-              Experience 2026
-            </h3>
-            <div>
-              <b>18</b>
-              <span>
-                ABR
-                <br />
-                16:00
-              </span>
-            </div>
-          </div>
-          <div className="ticket-code">
-            {qrDataUrl ? (
-              <img
-                src={qrDataUrl}
-                alt={`QR de entrada de ${nombre}`}
-                width={140}
-                height={140}
-              />
-            ) : (
-              <QR />
-            )}
-            <strong>{nombre}</strong>
-            <span>Ticket {ticketNumber}</span>
-            <small>Fexpocruz · Santa Cruz</small>
-          </div>
-        </div>
-        <p>
-          Presenta este QR al ingresar. El equipo lo escaneará para registrar tu
-          check-in y hora de llegada.
-        </p>
-        <div className="ticket-actions">
-          <Button icon="download">Descargar</Button>
-          <Button kind="secondary" icon="calendar">
-            Agregar a Wallet
-          </Button>
-          <Button kind="ghost">Enviar por WhatsApp</Button>
+    let canceled = false
+    setQrDataUrl(null)
+    setQrError(false)
+    QRCode.toDataURL(demoQrPayload(ticket), { width: 280, margin: 2 })
+      .then((url) => { if (!canceled) setQrDataUrl(url) })
+      .catch(() => { if (!canceled) setQrError(true) })
+    return () => { canceled = true }
+  }, [ticket])
+  if (!event) return null
+  return <div className="modal-backdrop" onMouseDown={onClose}>
+    <div className="ticket-modal" role="dialog" aria-modal="true" aria-label="Ticket de ejemplo" onMouseDown={(e) => e.stopPropagation()}>
+      <button className="modal-close" aria-label="Cerrar ticket" onClick={onClose}><Icon name="x" /></button>
+      <div className="success-mark"><Icon name="check" size={32} /></div>
+      <span className="section-kicker">INSCRIPCIÓN DE EJEMPLO CONFIRMADA</span>
+      <h2>Tu ticket</h2>
+      <div className="digital-ticket">
+        <div className="ticket-red"><Logo light /><span>ENTRADA DE EJEMPLO</span><h3>{event.title}</h3><div><b>{event.date.split(" ")[0]}</b><span>{event.date.split(" ")[1]} · 2026<br />{event.time}</span></div></div>
+        <div className="ticket-code">
+          {qrDataUrl ? <img src={qrDataUrl} width={180} height={180} alt={`QR del ticket de ${ticket.fullName}`} /> : <p role="status">{qrError ? "No se pudo generar el QR. Abre nuevamente el ticket." : "Generando QR…"}</p>}
+          <strong>{ticket.fullName}</strong><span>{ticket.id}</span><small>{event.place}</small>
         </div>
       </div>
+      <div className="ticket-actions">
+        {qrDataUrl && <a className="btn btn-primary" href={qrDataUrl} download={`${ticket.id}.png`}>Descargar QR<Icon name="download" /></a>}
+        <Button kind="secondary" onClick={() => { onClose(); document.querySelector("#tickets")?.scrollIntoView({ behavior: "smooth" }) }}>Tus tickets</Button>
+      </div>
     </div>
-  )
+  </div>
 }
 
 function Landing({ onRole }: { onRole: (r: Role) => void }) {
   const [scannerOpen, setScannerOpen] = useState(false)
   const closeScanner = useCallback(() => setScannerOpen(false), [])
-  const [detail, setDetail] = useState(false)
+  const [detail, setDetail] = useState<typeof events[number] | null>(null)
+  const [pendingEvent, setPendingEvent] = useState<typeof events[number] | null>(null)
+  const [tickets, setTickets] = useState<DemoTicket[]>([])
+  const [activeTicket, setActiveTicket] = useState<DemoTicket | null>(null)
   const [auth, setAuth] = useState<"login" | "register" | null>(null)
-  const [ticket, setTicket] = useState(false)
-  const [ticketUser, setTicketUser] = useState<TicketUser | null>(null)
+  const [user, setUser] = useState<AccountUser | null>(null)
+  const [sessionLoading, setSessionLoading] = useState(true)
+  const [notice, setNotice] = useState<string | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch("/api/auth/session", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const json = await response.json()
+        if (!response.ok || !json.ok) throw new Error(json.error || "No se pudo consultar la sesión")
+        setUser(json.data)
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setNotice(error instanceof Error ? error.message : "No se pudo consultar la sesión")
+      })
+      .finally(() => { if (!controller.signal.aborted) setSessionLoading(false) })
+    return () => controller.abort()
+  }, [])
+  useEffect(() => {
+    if (!user) { setTickets([]); setActiveTicket(null); return }
+    try { setTickets(readDemoTickets(localStorage, user.id)) }
+    catch { setNotice("No se pudieron cargar tus tickets.") }
+  }, [user])
+  const enroll = (account: AccountUser, event: typeof events[number]) => {
+    try {
+      const result = enrollDemoEvent(localStorage, account, event.id)
+      setTickets(result.tickets)
+      setActiveTicket(result.ticket)
+      setNotice(null)
+    } catch { setNotice("No se pudo guardar el ticket. Intenta nuevamente.") }
+  }
+  const logout = async () => {
+    setSessionLoading(true)
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" })
+      if (!response.ok) throw new Error("No se pudo cerrar la sesión. Intenta nuevamente.")
+      setUser(null)
+      setNotice("Sesión cerrada.")
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo cerrar la sesión")
+    } finally {
+      setSessionLoading(false)
+    }
+  }
   const join = () => {
-    setDetail(false)
-    setAuth("register")
+    if (!detail || sessionLoading) return
+    const event = detail
+    setDetail(null)
+    if (!user) {
+      setPendingEvent(event)
+      setAuth("login")
+      return
+    }
+    enroll(user, event)
   }
   return (
     <div className="landing">
-      <ClientNavbar onLogin={setAuth} onRole={onRole} />
+      <ClientNavbar onLogin={setAuth} onRole={onRole} user={user} loading={sessionLoading} onLogout={logout} />
+      {notice && <div className="account-notice" role="status">{notice}</div>}
       <main>
         <section className="hero">
           <div className="hero-copy">
@@ -1142,13 +1131,30 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
               <EventCard
                 key={e.title}
                 event={e}
-                onDetail={() => setDetail(true)}
+                onDetail={() => setDetail(e)}
               />
             ))}
           </div>
           <Button kind="secondary" icon="arrow">
             Ver todos los eventos
           </Button>
+        </section>
+        <section className="user-tickets-section" id="tickets">
+          <div className="section-head"><div><span className="section-kicker">TUS EXPERIENCIAS</span><h2>Tus tickets</h2></div></div>
+          {sessionLoading ? <p role="status">Cargando…</p> : !user ? (
+            <Button onClick={() => setAuth("login")}>Iniciar sesión</Button>
+          ) : tickets.length === 0 ? (
+            <div className="tickets-empty"><p>Aún no tienes tickets.</p><a className="btn btn-dark" href="#eventos">Explorar eventos</a></div>
+          ) : (
+            <div className="user-ticket-grid">{tickets.map((ticket) => {
+              const event = events.find((event) => event.id === ticket.eventId)
+              return event ? <article className="user-ticket-card" key={ticket.id}>
+                <Badge>Ticket de ejemplo</Badge><h3>{event.title}</h3>
+                <p>{event.date} · {event.time}</p><p>{event.place}</p><strong>{ticket.fullName}</strong>
+                <Button icon="qr" onClick={() => setActiveTicket(ticket)}>Ver ticket y QR</Button>
+              </article> : null
+            })}</div>
+          )}
         </section>
         <section className="live-experience">
           <div>
@@ -1190,7 +1196,7 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
               <Logo light />
               <Icon name="bell" />
             </div>
-            <span>HOLA, VALERIA</span>
+            <span>{user ? `HOLA, ${user.nombre.toUpperCase()}` : "TU EXPERIENCIA COCA-COLA"}</span>
             <h3>
               ¿Lista para
               <br />
@@ -1245,7 +1251,7 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
           <strong>EXPLORA</strong>
           <a href="#eventos">Eventos</a>
           <a href="#social">Redes sociales</a>
-          <a href="#inicio">Mis entradas</a>
+          <a href="#tickets">Tus tickets</a>
         </div>
         <div>
           <strong>INFORMACIÓN</strong>
@@ -1259,20 +1265,25 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
       </footer>
       <RoleSwitcher role="cliente" onRole={onRole} />
       {scannerOpen && <QrScannerModal onClose={closeScanner} />}
-      {detail && <EventDetail onClose={() => setDetail(false)} onJoin={join} />}
+      {detail && <EventDetail event={detail} enrolled={tickets.some((ticket) => ticket.eventId === detail.id)} onClose={() => setDetail(null)} onJoin={join} />}
+      {activeTicket && <TicketScreen ticket={activeTicket} onClose={() => setActiveTicket(null)} />}
       {auth && (
         <AuthModal
+          key={auth}
           mode={auth}
-          onClose={() => setAuth(null)}
-          onDone={(user) => {
+          onModeChange={setAuth}
+          onClose={() => { setAuth(null); setPendingEvent(null) }}
+          onDone={(account, created) => {
             setAuth(null)
-            setTicketUser(user ?? null)
-            setTicket(true)
+            setUser(account)
+            if (pendingEvent) {
+              enroll(account, pendingEvent)
+              setPendingEvent(null)
+            } else {
+              setNotice(created ? "Cuenta creada correctamente." : `Bienvenido, ${account.nombre}.`)
+            }
           }}
         />
-      )}
-      {ticket && (
-        <TicketScreen user={ticketUser} onClose={() => setTicket(false)} />
       )}
     </div>
   )
