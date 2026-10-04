@@ -596,13 +596,7 @@ function AuthModal({
                 help="Te enviaremos tu entrada aquí"
                 required
               />
-              <Field
-                label="Celular"
-                type="tel"
-                placeholder="+591 700 00000"
-                help="Lo usaremos para WhatsApp"
-                required
-              />
+             <PhoneField />
               <Field
                 label="Contraseña"
                 type="password"
@@ -780,6 +774,53 @@ function Field({
         />
       )}
       {error ? <small>{error}</small> : help && <small>{help}</small>}
+    </label>
+  )
+}
+function PhoneField() {
+  return (
+    <label className="field">
+      <span>
+        Celular <b>*</b>
+      </span>
+
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "100px minmax(140px, 1fr)",
+    gap: "8px",
+    width: "100%",
+  }}
+>
+        <select
+          defaultValue="+591"
+          aria-label="Código de país"
+          style={{ width: "100%" }}
+        >
+          <option value="+591">🇧🇴 +591</option>
+          <option value="+54">🇦🇷 +54</option>
+          <option value="+55">🇧🇷 +55</option>
+          <option value="+56">🇨🇱 +56</option>
+          <option value="+57">🇨🇴 +57</option>
+          <option value="+593">🇪🇨 +593</option>
+          <option value="+52">🇲🇽 +52</option>
+          <option value="+595">🇵🇾 +595</option>
+          <option value="+51">🇵🇪 +51</option>
+          <option value="+598">🇺🇾 +598</option>
+          <option value="+58">🇻🇪 +58</option>
+          <option value="+1">🇺🇸 +1</option>
+          <option value="+34">🇪🇸 +34</option>
+        </select>
+
+        <input
+          type="tel"
+          placeholder="Número de celular"
+          required
+          style={{ width: "100%", minWidth: 0 }}
+        />
+      </div>
+
+      <small>Lo usaremos para WhatsApp</small>
     </label>
   )
 }
