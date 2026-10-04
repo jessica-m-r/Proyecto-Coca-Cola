@@ -9,6 +9,7 @@ const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashbo
   loading: () => <p className="stats-notice">Cargando panel…</p>,
 })
 import { MlPredictions } from "./ml-predictions"
+import { getAdminEntityForPage, getDisplayRows } from "@/lib/admin-data"
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
 type TicketUser = { id: number; nombre: string; apellido: string }
@@ -1517,140 +1518,91 @@ function ScannerPage() {
   )
 }
 
-const formFieldsByPage: Record<string, string[]> = {
+type FormFieldDef = {
+  label: string
+  name: string
+  kind?: "select" | "textarea"
+  type?: string
+  required?: boolean
+  placeholder?: string
+  options?: string[]
+  defaultValue?: string
+}
+
+const pageEntityMap: Record<string, string> = {
+  "Mis eventos": "eventos",
+  Eventos: "eventos",
+  "Usuarios y roles": "usuarios",
+  Participantes: "participantes",
+  Productos: "productos",
+  Campañas: "campanas",
+}
+
+const formFieldsByPage: Record<string, FormFieldDef[]> = {
   "Mis eventos": [
-    "Nombre del evento",
-    "Tipo de evento",
-    "Fecha y hora de inicio",
-    "Fecha y hora de fin",
-    "Lugar y dirección",
-    "Ciudad",
-    "Organizador",
-    "Responsable",
-    "Descripción",
-    "Objetivo del evento",
-    "Campaña asociada",
-    "Presupuesto (Bs)",
-    "Participantes esperados",
-    "Productos destacados",
-    "Canal o aliado",
+    { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
+    { label: "Tipo de evento", name: "tipo_evento_id", type: "number", required: true, placeholder: "1" },
+    { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "borrador", options: ["borrador", "activo", "finalizado", "cancelado"] },
+    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local", required: true },
+    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local", required: true },
+    { label: "Ciudad", name: "ciudad", placeholder: "Santa Cruz" },
+    { label: "Lugar", name: "lugar", placeholder: "Plaza 24 de Septiembre" },
+    { label: "Dirección", name: "direccion", placeholder: "Av. Camacho 123" },
+    { label: "Aforo", name: "aforo", type: "number", placeholder: "350" },
+    { label: "Presupuesto (Bs)", name: "presupuesto", type: "number", placeholder: "25000" },
+    { label: "Objetivo", name: "objetivo", kind: "textarea", placeholder: "Objetivo principal del evento" },
+    { label: "Campaña asociada", name: "campana_id", type: "number", placeholder: "1" },
+    { label: "Organizador", name: "organizador_id", placeholder: "UUID del organizador" },
   ],
   Eventos: [
-    "Nombre del evento",
-    "Tipo de evento",
-    "Fecha y hora de inicio",
-    "Lugar",
-    "Ciudad",
-    "Campaña asociada",
-    "Estado",
-  ],
-  Actividades: [
-    "Nombre de la actividad",
-    "Tipo de actividad",
-    "Descripción",
-    "Instrucciones para el participante",
-    "Evento",
-    "Horario de inicio",
-    "Horario de fin",
-    "Ubicación",
-    "Cupo máximo",
-    "Producto asociado",
-    "Encuesta asociada",
-    "Promoción asociada",
-    "Estado",
-  ],
-  Degustaciones: [
-    "Nombre del punto",
-    "Evento",
-    "Actividad asociada",
-    "Ubicación",
-    "Horario",
-    "Producto o sabor",
-    "Presentación",
-    "Stock inicial",
-    "Alerta de stock bajo",
-    "Máximo por persona",
-    "Plantilla post-degustación",
-    "Estado",
-  ],
-  Encuestas: [
-    "Nombre de encuesta",
-    "Descripción",
-    "Asignar a",
-    "Plantilla base",
-    "Mensaje de bienvenida",
-    "Mensaje de agradecimiento",
-    "Recompensa",
-    "Fecha de apertura",
-    "Fecha de cierre",
+    { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
+    { label: "Tipo de evento", name: "tipo_evento_id", type: "number", required: true, placeholder: "1" },
+    { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "borrador", options: ["borrador", "activo", "finalizado", "cancelado"] },
+    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local", required: true },
+    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local", required: true },
+    { label: "Ciudad", name: "ciudad", placeholder: "La Paz" },
+    { label: "Lugar", name: "lugar", placeholder: "Centro Cultural" },
+    { label: "Campaña asociada", name: "campana_id", type: "number", placeholder: "1" },
   ],
   "Usuarios y roles": [
-    "Nombre",
-    "Apellido",
-    "Correo",
-    "Celular",
-    "Rol",
-    "Estado",
-    "Eventos asignados",
-    "Permisos especiales",
-    "Contraseña temporal",
+    { label: "Nombre", name: "nombre", required: true, placeholder: "María" },
+    { label: "Apellido", name: "apellido", placeholder: "Rodríguez" },
+    { label: "Correo", name: "email", type: "email", required: true, placeholder: "usuario@empresa.com" },
+    { label: "Celular", name: "celular", required: true, placeholder: "+591 70000000" },
+    { label: "Rol", name: "rol", kind: "select", required: true, defaultValue: "organizador", options: ["administrador", "organizador", "marketing", "participante"] },
+    { label: "Ciudad", name: "ciudad", placeholder: "Santa Cruz" },
+    { label: "Rango de edad", name: "rango_edad", kind: "select", options: ["18-24", "25-34", "35-44", "45-54", "55+"] },
+    { label: "Género", name: "genero", placeholder: "Femenino" },
+    { label: "Ocupación", name: "ocupacion", placeholder: "Coordinadora" },
+    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
+    { label: "Acepta marketing", name: "acepta_marketing", kind: "select", defaultValue: "true", options: ["true", "false"] },
+  ],
+  Participantes: [
+    { label: "Nombre", name: "nombre", required: true, placeholder: "Ana" },
+    { label: "Apellido", name: "apellido", placeholder: "García" },
+    { label: "Correo", name: "email", type: "email", required: true, placeholder: "participante@coca.test" },
+    { label: "Celular", name: "celular", required: true, placeholder: "+591 70000000" },
+    { label: "Rol", name: "rol", kind: "select", required: true, defaultValue: "participante", options: ["participante"] },
+    { label: "Ciudad", name: "ciudad", placeholder: "Cochabamba" },
+    { label: "Rango de edad", name: "rango_edad", kind: "select", options: ["18-24", "25-34", "35-44", "45-54", "55+"] },
+    { label: "Género", name: "genero", placeholder: "Masculino" },
+    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
   ],
   Productos: [
-    "Nombre",
-    "Categoría",
-    "Marca",
-    "Presentaciones",
-    "Sabor",
-    "Descripción corta",
-    "Código interno / SKU",
-    "Estado",
+    { label: "Nombre", name: "nombre", required: true, placeholder: "Coca-Cola Original" },
+    { label: "Tipo de producto", name: "tipo_producto_id", type: "number", required: true, placeholder: "1" },
+    { label: "Descripción", name: "descripcion", kind: "textarea", placeholder: "Descripción del producto" },
+    { label: "SKU", name: "sku", placeholder: "SKU-001" },
+    { label: "Precio", name: "precio", type: "number", placeholder: "12.5" },
+    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
   ],
   Campañas: [
-    "Nombre de campaña",
-    "Código único",
-    "Objetivo",
-    "Fecha de inicio",
-    "Fecha de fin",
-    "Presupuesto",
-    "Canales",
-    "Aliados",
-    "Productos foco",
-    "Acción objetivo",
-    "Meta de conversiones",
-    "Estado",
-  ],
-  Promociones: [
-    "Nombre",
-    "Tipo de beneficio",
-    "Valor",
-    "Código",
-    "Descripción y condiciones",
-    "Eventos asociados",
-    "Campaña",
-    "Producto aplicable",
-    "Límite total",
-    "Límite por persona",
-    "Vigencia inicio",
-    "Vigencia fin",
-    "Audiencia",
-    "Estado",
-  ],
-  Automatizaciones: [
-    "Nombre",
-    "Disparador",
-    "Canales",
-    "Audiencia",
-    "Plantilla de mensaje",
-    "Programación",
-    "Notificar al equipo",
-    "Condiciones",
-  ],
-  Integraciones: [
-    "URL / endpoint",
-    "API key o token",
-    "Usuario / workspace",
-    "Frecuencia de sincronización",
-    "Tablas a exponer",
+    { label: "Nombre de campaña", name: "nombre", required: true, placeholder: "Ruta de sabores 2026" },
+    { label: "Descripción", name: "descripcion", kind: "textarea", placeholder: "Objetivo de la campaña" },
+    { label: "Fecha de inicio", name: "fecha_inicio", type: "date", required: true },
+    { label: "Fecha de fin", name: "fecha_fin", type: "date", required: true },
+    { label: "Presupuesto", name: "presupuesto", type: "number", placeholder: "25000" },
+    { label: "Activa", name: "activa", kind: "select", defaultValue: "true", options: ["true", "false"] },
   ],
 }
 
@@ -1662,8 +1614,41 @@ function DataPage({
   role: Exclude<Role, "cliente">
 }) {
   const [form, setForm] = useState(false),
-    [toast, setToast] = useState(false)
+    [toast, setToast] = useState(false),
+    [records, setRecords] = useState<Record<string, unknown>[]>([]),
+    [loading, setLoading] = useState(false)
   const fields = formFieldsByPage[page]
+  const entity = getAdminEntityForPage(page)
+
+  useEffect(() => {
+    if (!entity) {
+      setRecords([])
+      return
+    }
+
+    let active = true
+    setLoading(true)
+
+    fetch(`/api/admin/${entity}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("No se pudieron cargar los registros.")
+        }
+        const body = await response.json()
+        if (active) setRecords(Array.isArray(body?.data) ? body.data : [])
+      })
+      .catch(() => {
+        if (active) setRecords([])
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [entity])
+
   if (page === "Check-in QR") return <ScannerPage />
   if (page === "Predicciones IA") return <MlPredictions role={role} />
   if (form && fields)
@@ -1679,24 +1664,9 @@ function DataPage({
         }}
       />
     )
-  const rows = [
-    [
-      "Coca-Cola Experience 2026",
-      "Santa Cruz",
-      "En curso",
-      "350",
-      "18 Abr 2026",
-    ],
-    ["Ritmo Urbano Sessions", "La Paz", "Programado", "480", "26 Abr 2026"],
-    [
-      "Copa Coca-Cola Fan Zone",
-      "Cochabamba",
-      "Programado",
-      "620",
-      "03 May 2026",
-    ],
-    ["Ruta Zero Universidades", "Sucre", "Borrador", "240", "14 May 2026"],
-  ]
+
+  const rows = getDisplayRows(page, records)
+
   return (
     <>
       <div className="dashboard-title compact">
@@ -1716,7 +1686,7 @@ function DataPage({
               : `Crear ${page.toLowerCase().replace(/s$/, "")}`}
         </Button>
       </div>
-      <p className="stats-notice">Esta pantalla operativa sigue siendo una demostración. Sus formularios todavía no guardan registros en la base de datos.</p>
+      <p className="stats-notice">Los formularios de creación están alineados con la estructura real de la base de datos y se guardan en Supabase.</p>
       {page === "Actividades" && (
         <div className="metric-strip">
           {[
@@ -1758,56 +1728,59 @@ function DataPage({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={r[0]}>
-                  <td>
-                    <strong>
-                      {page === "Participantes"
-                        ? [
-                            "Valeria Rojas",
-                            "Diego Salvatierra",
-                            "Camila Vargas",
-                            "Nicolás Peña",
-                          ][i]
-                        : r[0]}
-                    </strong>
-                    <small>
-                      {page === "Actividades"
-                        ? "Degustación / sampling"
-                        : "Campaña Experience 2026"}
-                    </small>
-                  </td>
-                  <td>{r[1]}</td>
-                  <td>
-                    <Badge
-                      tone={
-                        r[2] === "En curso"
-                          ? "green"
-                          : r[2] === "Borrador"
-                            ? "neutral"
-                            : "yellow"
-                      }
-                    >
-                      {r[2]}
-                    </Badge>
-                  </td>
-                  <td>{r[3]}</td>
-                  <td>{r[4]}</td>
-                  <td>
-                    <button>
-                      <Icon name="eye" />
-                    </button>
-                    <button>
-                      <Icon name="menu" />
-                    </button>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "2rem" }}>
+                    Cargando datos...
                   </td>
                 </tr>
-              ))}
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "2rem" }}>
+                    No hay registros para mostrar.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={`${row.name}-${row.date}-${row.city}`}>
+                    <td>
+                      <strong>{row.name}</strong>
+                      <small>{page === "Actividades" ? "Degustación / sampling" : "Registro real desde Supabase"}</small>
+                    </td>
+                    <td>{row.city}</td>
+                    <td>
+                      <Badge
+                        tone={
+                          row.status === "activo"
+                            ? "green"
+                            : row.status === "finalizado"
+                              ? "neutral"
+                              : row.status === "inactivo"
+                                ? "yellow"
+                                : "yellow"
+                        }
+                      >
+                        {row.status}
+                      </Badge>
+                    </td>
+                    <td>{String(row.metric)}</td>
+                    <td>{row.date}</td>
+                    <td>
+                      <button>
+                        <Icon name="eye" />
+                      </button>
+                      <button>
+                        <Icon name="menu" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
         <div className="pagination">
-          <span>Mostrando 1–4 de 24 resultados</span>
+          <span>{rows.length ? `Mostrando ${rows.length} resultado${rows.length === 1 ? "" : "s"}` : "Sin resultados"}</span>
           <div>
             <button>Anterior</button>
             <button className="active">1</button>
@@ -1837,26 +1810,65 @@ function FormPage({
   onSave,
 }: {
   page: string
-  fields: string[]
+  fields: FormFieldDef[]
   onBack: () => void
   onSave: () => void
 }) {
-  const [step, setStep] = useState(1),
-    [loading, setLoading] = useState(false)
-  const total = page === "Mis eventos" ? 6 : 1
-  const shown = total > 1 ? fields.slice((step - 1) * 3, step * 3 + 3) : fields
-  const submit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (step < total) {
-      setStep(step + 1)
-      return
-    }
+    setSubmitError(null)
     setLoading(true)
-    window.setTimeout(() => {
-      setLoading(false)
+
+    try {
+      const form = e.currentTarget
+      const formData = new FormData(form)
+      const payload: Record<string, string | boolean | number | null> = {}
+
+      formData.forEach((value, key) => {
+        if (value === "" || value instanceof File) return
+        const stringKey = String(key)
+        if (stringKey === "activo" || stringKey === "acepta_marketing" || stringKey === "activa") {
+          payload[stringKey] = value === "true"
+          return
+        }
+        if (stringKey === "aforo" || stringKey === "presupuesto" || stringKey === "precio" || stringKey === "tipo_evento_id" || stringKey === "campana_id" || stringKey === "tipo_producto_id") {
+          const parsed = Number(value)
+          payload[stringKey] = Number.isNaN(parsed) ? String(value) : parsed
+          return
+        }
+        payload[stringKey] = String(value)
+      })
+
+      const entity = pageEntityMap[page]
+      if (!entity) {
+        throw new Error("No existe la entidad para esta pantalla")
+      }
+
+      const response = await fetch(`/api/admin/${entity}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(result?.error || "No se pudo guardar el registro.")
+      }
+
       onSave()
-    }, 700)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo guardar el registro."
+      setSubmitError(message)
+    } finally {
+      setLoading(false)
+    }
   }
+
   return (
     <div className="form-page">
       <button className="back-link" onClick={onBack}>
@@ -1864,120 +1876,47 @@ function FormPage({
       </button>
       <div className="dashboard-title compact">
         <div>
-          <span>FORMULARIO · BORRADOR GUARDADO</span>
-          <h1>
-            {page === "Mis eventos" ? "Crear nuevo evento" : `Crear · ${page}`}
-          </h1>
-          <p>Los campos marcados con * son obligatorios.</p>
+          <span>FORMULARIO · BASE DE DATOS</span>
+          <h1>{page === "Mis eventos" ? "Crear nuevo evento" : `Crear · ${page}`}</h1>
+          <p>Los campos corresponden a las columnas reales de Supabase.</p>
         </div>
       </div>
-      {total > 1 && (
-        <div className="stepper">
-          {[
-            "Información",
-            "Entrada",
-            "Cronograma",
-            "Actividades",
-            "Promociones",
-            "Revisión",
-          ].map((x, i) => (
-            <button
-              className={i + 1 === step ? "active" : i + 1 < step ? "done" : ""}
-              onClick={() => i < step && setStep(i + 1)}
-              key={x}
-            >
-              <i>{i + 1 < step ? <Icon name="check" size={14} /> : i + 1}</i>
-              <span>{x}</span>
-            </button>
-          ))}
-        </div>
-      )}
+
       <form className="panel form-panel" onSubmit={submit}>
         <div className="form-title">
-          <span>
-            PASO {step}
-            {total > 1 ? ` DE ${total}` : ""}
-          </span>
-          <h3>
-            {total > 1
-              ? [
-                  "Información general",
-                  "Entrada y aforo",
-                  "Cronograma",
-                  "Actividades",
-                  "Promociones y cupones",
-                  "Metas y publicación",
-                ][step - 1]
-              : `Datos de ${page.toLowerCase()}`}
-          </h3>
-          <p>
-            Completa la información para mantener los datos listos para el
-            equipo.
-          </p>
+          <span>INFORMACIÓN</span>
+          <h3>{`Datos de ${page.toLowerCase()}`}</h3>
+          <p>Completa los campos necesarios para guardar el registro en la base de datos.</p>
         </div>
+
         <div className="admin-field-grid">
-          {shown.map((x, i) => (
+          {fields.map((field) => (
             <Field
-              key={x}
-              label={x}
-              required={i < Math.ceil(shown.length * 0.7)}
-              defaultValue={
-                i === 0
-                  ? page === "Mis eventos"
-                    ? "Coca-Cola Experience 2026"
-                    : ""
-                  : ""
-              }
-              kind={
-                x.includes("Descripción") ||
-                x.includes("Objetivo") ||
-                x.includes("Mensaje")
-                  ? "textarea"
-                  : x.includes("Tipo") ||
-                      x.includes("Estado") ||
-                      x.includes("Ciudad") ||
-                      x.includes("Campaña") ||
-                      x.includes("Rol")
-                    ? "select"
-                    : undefined
-              }
-              options={[
-                "Seleccionar opción",
-                "Activo",
-                "Programado",
-                "Santa Cruz",
-              ]}
-              error={
-                i === shown.length - 1
-                  ? "Revisa este campo antes de continuar."
-                  : undefined
-              }
+              key={field.name}
+              label={field.label}
+              name={field.name}
+              required={field.required}
+              type={field.type || "text"}
+              placeholder={field.placeholder}
+              kind={field.kind}
+              defaultValue={field.defaultValue}
+              options={field.options}
             />
           ))}
         </div>
-        {step === 3 && (
-          <div className="schedule-block">
-            <strong>Bloque de cronograma</strong>
-            <span>16:00 — 16:45 · Apertura y check-in · Acceso principal</span>
-            <button type="button">Duplicar</button>
-            <button type="button">Eliminar</button>
-          </div>
+
+        {submitError && (
+          <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {submitError}
+          </p>
         )}
+
         <div className="form-actions">
           <Button kind="ghost" onClick={onBack}>
             Cancelar
           </Button>
-          {step > 1 && (
-            <Button kind="secondary" onClick={() => setStep(step - 1)}>
-              Atrás
-            </Button>
-          )}
           <Button type="submit" disabled={loading}>
-            {loading
-              ? "Guardando..."
-              : step < total
-                ? "Guardar y continuar"
-                : "Guardar y publicar"}
+            {loading ? "Guardando..." : "Guardar y publicar"}
           </Button>
         </div>
       </form>
