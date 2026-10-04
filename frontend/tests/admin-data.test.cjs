@@ -30,13 +30,14 @@ test("las pantallas de administración usan la entidad correcta y muestran los d
   const productos = getDisplayRows("Productos", [{
     nombre: "Coca-Cola Zero",
     activo: true,
-    precio: 12.5,
-    descripcion: "Sin azúcar",
+    categoria: "Sin azúcar",
+    sabor: "Zero",
+    presentacion: "Lata 355ml",
   }]);
 
   assert.equal(productos[0].name, "Coca-Cola Zero");
   assert.equal(productos[0].status, "activo");
-  assert.equal(productos[0].metric, 12.5);
+  assert.equal(productos[0].metric, "Zero");
 });
 
 test("los filtros de usuarios y participantes no dependen de un id fijo de rol", () => {
@@ -49,6 +50,29 @@ test("los filtros de usuarios y participantes no dependen de un id fijo de rol",
 
   assert.deepEqual(resolveUserRoleIdsForEntity("participantes", roles), [7]);
   assert.deepEqual(resolveUserRoleIdsForEntity("usuarios", roles), [1, 2, 3]);
+});
+
+test("productos y campañas muestran campos reales de la base de datos y no datos fantasma", () => {
+  const productos = getDisplayRows("Productos", [{
+    nombre: "Coca-Cola Zero",
+    activo: true,
+    sabor: "Zero",
+    categoria: "Sin azúcar",
+    presentacion: "Lata 355ml",
+  }]);
+
+  assert.equal(productos[0].name, "Coca-Cola Zero");
+  assert.equal(productos[0].status, "activo");
+  assert.equal(productos[0].metric, "Zero");
+
+  const campanas = getDisplayRows("Campañas", [{
+    nombre: "Ruta de sabores",
+    objetivo_conversion: "Aumentar ventas en puntos de degustación",
+    fecha_inicio: "2026-06-01T00:00:00.000Z",
+  }]);
+
+  assert.equal(campanas[0].name, "Ruta de sabores");
+  assert.equal(campanas[0].metric, "Aumentar ventas en puntos de degustación");
 });
 
 test("los usuarios muestran nombre completo y el rol real, sin usar filtros de evento", () => {

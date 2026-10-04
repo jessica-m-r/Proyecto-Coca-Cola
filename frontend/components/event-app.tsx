@@ -1553,8 +1553,8 @@ const formFieldsByPage: Record<string, FormFieldDef[]> = {
     { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
     { label: "Tipo de evento", name: "tipo_evento_id", kind: "select", required: true, options: [] },
     { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "planificado", options: ["planificado", "en_curso", "cerrado"] },
-    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local", required: true },
-    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local", required: true },
+    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local" },
+    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local" },
     { label: "Ciudad", name: "ciudad", placeholder: "Santa Cruz" },
     { label: "Lugar", name: "lugar", placeholder: "Plaza 24 de Septiembre" },
     { label: "Dirección", name: "direccion", placeholder: "Av. Camacho 123" },
@@ -1568,8 +1568,8 @@ const formFieldsByPage: Record<string, FormFieldDef[]> = {
     { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
     { label: "Tipo de evento", name: "tipo_evento_id", kind: "select", required: true, options: [] },
     { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "planificado", options: ["planificado", "en_curso", "cerrado"] },
-    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local", required: true },
-    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local", required: true },
+    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local" },
+    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local" },
     { label: "Ciudad", name: "ciudad", placeholder: "La Paz" },
     { label: "Lugar", name: "lugar", placeholder: "Centro Cultural" },
     { label: "Campaña asociada", name: "campana_id", kind: "select", options: [] },
@@ -1601,18 +1601,16 @@ const formFieldsByPage: Record<string, FormFieldDef[]> = {
   Productos: [
     { label: "Nombre", name: "nombre", required: true, placeholder: "Coca-Cola Original" },
     { label: "Tipo de producto", name: "tipo_producto_id", kind: "select", required: true, options: [] },
-    { label: "Descripción", name: "descripcion", kind: "textarea", placeholder: "Descripción del producto" },
-    { label: "SKU", name: "sku", placeholder: "SKU-001" },
-    { label: "Precio", name: "precio", type: "number", placeholder: "12.5" },
+    { label: "Categoría", name: "categoria", placeholder: "Gaseosas" },
+    { label: "Sabor", name: "sabor", placeholder: "Original" },
+    { label: "Presentación", name: "presentacion", placeholder: "Lata 355ml" },
     { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
   ],
   Campañas: [
     { label: "Nombre de campaña", name: "nombre", required: true, placeholder: "Ruta de sabores 2026" },
-    { label: "Descripción", name: "descripcion", kind: "textarea", placeholder: "Objetivo de la campaña" },
-    { label: "Fecha de inicio", name: "fecha_inicio", type: "date", required: true },
-    { label: "Fecha de fin", name: "fecha_fin", type: "date", required: true },
-    { label: "Presupuesto", name: "presupuesto", type: "number", placeholder: "25000" },
-    { label: "Activa", name: "activa", kind: "select", defaultValue: "true", options: ["true", "false"] },
+    { label: "Objetivo de conversión", name: "objetivo_conversion", kind: "textarea", placeholder: "Objetivo de la campaña" },
+    { label: "Fecha de inicio", name: "fecha_inicio", type: "date" },
+    { label: "Fecha de fin", name: "fecha_fin", type: "date" },
   ],
 }
 
@@ -1635,7 +1633,7 @@ function DataPage({
     [currentPage, setCurrentPage] = useState(1)
   const fields = formFieldsByPage[page]
   const entity = getAdminEntityForPage(page)
-  const showUserRoleFilters = page === "Usuarios y roles" || page === "Participantes"
+  const showEventFilter = ["Usuarios y roles", "Participantes", "Productos", "Campañas"].includes(page)
 
   useEffect(() => {
     setCurrentPage(1)
@@ -1651,7 +1649,7 @@ function DataPage({
     setLoading(true)
 
     const url = new URL(`/api/admin/${entity}`, window.location.origin)
-    if (showUserRoleFilters && selectedEventId !== "all") {
+    if (showEventFilter && selectedEventId !== "all") {
       url.searchParams.set("event_id", selectedEventId)
     }
 
@@ -1673,10 +1671,10 @@ function DataPage({
     return () => {
       active = false
     }
-  }, [entity, selectedEventId, showUserRoleFilters])
+  }, [entity, selectedEventId, showEventFilter])
 
   useEffect(() => {
-    if (!showUserRoleFilters) {
+    if (!showEventFilter) {
       setEventOptions([])
       return
     }
@@ -1703,7 +1701,7 @@ function DataPage({
     return () => {
       active = false
     }
-  }, [showUserRoleFilters])
+  }, [showEventFilter])
 
   if (page === "Check-in QR") return <ScannerPage />
   if (page === "Predicciones IA") return <MlPredictions role={role} />
@@ -1722,6 +1720,9 @@ function DataPage({
     )
 
   const isEventStatusPage = page === "Eventos" || page === "Mis eventos"
+  const detailColumnLabel = page === "Productos" ? "CATEGORÍA" : page === "Campañas" ? "OBJETIVO" : "CIUDAD"
+  const showDateColumn = page !== "Productos"
+  const tableColumnSpan = showDateColumn ? 5 : 4
 
   const visibleRecords = records.filter((row) => {
     const normalizedRow = row ?? {}
@@ -1737,6 +1738,10 @@ function DataPage({
       normalizedRow.ciudad,
       normalizedRow.lugar,
       normalizedRow.sku,
+      normalizedRow.categoria,
+      normalizedRow.sabor,
+      normalizedRow.presentacion,
+      normalizedRow.objetivo_conversion,
       normalizedRow.descripcion,
       normalizedRow.status,
       normalizedRow.estado,
@@ -1810,7 +1815,7 @@ function DataPage({
               placeholder={`Buscar en ${page.toLowerCase()}...`}
             />
           </div>
-          {showUserRoleFilters && (
+          {showEventFilter && (
             <div className="search-box" style={{ minWidth: 220 }}>
               <select
                 value={selectedEventId}
@@ -1872,23 +1877,23 @@ function DataPage({
             <thead>
               <tr>
                 <th>NOMBRE</th>
-                <th>CIUDAD</th>
-                {!showUserRoleFilters && <th>{isEventStatusPage ? "ESTADO" : "REGISTROS"}</th>}
-                <th>{showUserRoleFilters ? "ROL" : "REGISTROS"}</th>
-                <th>FECHA</th>
+                <th>{detailColumnLabel}</th>
+                {!showEventFilter && <th>{isEventStatusPage ? "ESTADO" : "REGISTROS"}</th>}
+                <th>{showEventFilter ? "DETALLE" : "REGISTROS"}</th>
+                {showDateColumn && <th>FECHA</th>}
                 <th>ACCIONES</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={showUserRoleFilters ? 5 : 6} style={{ textAlign: "center", padding: "2rem" }}>
+                  <td colSpan={tableColumnSpan} style={{ textAlign: "center", padding: "2rem" }}>
                     Cargando datos...
                   </td>
                 </tr>
               ) : pagination.items.length === 0 ? (
                 <tr>
-                  <td colSpan={showUserRoleFilters ? 5 : 6} style={{ textAlign: "center", padding: "2rem" }}>
+                  <td colSpan={tableColumnSpan} style={{ textAlign: "center", padding: "2rem" }}>
                     No hay registros para mostrar.
                   </td>
                 </tr>
@@ -1905,7 +1910,7 @@ function DataPage({
                         <strong>{row.name}</strong>
                       </td>
                       <td>{row.city}</td>
-                      {!showUserRoleFilters && (
+                      {!showEventFilter && (
                         <td>
                           <Badge
                             tone={
@@ -1923,7 +1928,7 @@ function DataPage({
                         </td>
                       )}
                       <td>{String(row.metric)}</td>
-                      <td>{row.date}</td>
+                      {showDateColumn && <td>{row.date}</td>}
                       <td>
                         <button>
                           <Icon name="eye" />

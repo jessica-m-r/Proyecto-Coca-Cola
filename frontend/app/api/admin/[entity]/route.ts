@@ -30,11 +30,11 @@ const parseNumber = (value: unknown) => {
 };
 
 const toIsoDate = (value: unknown) => {
-  if (!value) return new Date().toISOString();
+  if (!value) return null;
   const raw = String(value).trim();
-  if (!raw) return new Date().toISOString();
+  if (!raw) return null;
   const asDate = new Date(raw);
-  return Number.isNaN(asDate.getTime()) ? new Date().toISOString() : asDate.toISOString();
+  return Number.isNaN(asDate.getTime()) ? null : asDate.toISOString();
 };
 
 async function getFirstValue<T>(table: string, field: string): Promise<T | null> {
@@ -65,54 +65,50 @@ async function buildInsertPayload(entity: string, payload: Record<string, unknow
     const allowedEstados = new Set(["planificado", "en_curso", "cerrado"]);
     const rawEstado = typeof normalized.estado === "string" ? normalized.estado.trim().toLowerCase() : "planificado";
     const safeEstado = normalizeEventStatus(rawEstado);
-
-    if (!allowedEstados.has(safeEstado)) {
-      return {
-        nombre: (normalized.nombre as string) || "Nuevo evento",
-        descripcion: (normalized.descripcion as string) || "Evento creado desde el panel administrativo",
-        tipo_evento_id: parseNumber(normalized.tipo_evento_id ?? normalized.tipo_evento) ?? (await getFirstValue<number>("tipo_evento", "id")) ?? 1,
-        campana_id: parseNumber(normalized.campana_id ?? normalized.campana) ?? (await getFirstValue<number>("campana", "id")) ?? 1,
-        organizador_id: (normalized.organizador_id as string) || (await getFirstValue<string>("usuario", "id")) || "00000000-0000-0000-0000-000000000000",
-        fecha_inicio: toIsoDate(normalized.fecha_inicio ?? normalized.fecha_y_hora_de_inicio),
-        fecha_fin: toIsoDate(normalized.fecha_fin ?? normalized.fecha_y_hora_de_fin),
-        ciudad: (normalized.ciudad as string) || "Santa Cruz",
-        lugar: (normalized.lugar as string) || (normalized.lugar_y_direccion as string) || "Sin lugar definido",
-        direccion: (normalized.direccion as string) || null,
-        aforo: parseNumber(normalized.aforo ?? normalized.participantes_esperados) ?? 100,
-        presupuesto: parseNumber(normalized.presupuesto) ?? 0,
-        objetivo: (normalized.objetivo as string) || (normalized.descripcion as string) || "Objetivo general",
-        activo: true,
-        estado: "planificado",
-      };
-    }
-
-    return {
+    const fechaInicio = toIsoDate(normalized.fecha_inicio ?? normalized.fecha_y_hora_de_inicio);
+    const fechaFin = toIsoDate(normalized.fecha_fin ?? normalized.fecha_y_hora_de_fin);
+    const payloadBase = {
       nombre: (normalized.nombre as string) || "Nuevo evento",
       descripcion: (normalized.descripcion as string) || "Evento creado desde el panel administrativo",
       tipo_evento_id: parseNumber(normalized.tipo_evento_id ?? normalized.tipo_evento) ?? (await getFirstValue<number>("tipo_evento", "id")) ?? 1,
       campana_id: parseNumber(normalized.campana_id ?? normalized.campana) ?? (await getFirstValue<number>("campana", "id")) ?? 1,
       organizador_id: (normalized.organizador_id as string) || (await getFirstValue<string>("usuario", "id")) || "00000000-0000-0000-0000-000000000000",
-      estado: safeEstado,
-      fecha_inicio: toIsoDate(normalized.fecha_inicio ?? normalized.fecha_y_hora_de_inicio),
-      fecha_fin: toIsoDate(normalized.fecha_fin ?? normalized.fecha_y_hora_de_fin),
-      ciudad: (normalized.ciudad as string) || "Santa Cruz",
-      lugar: (normalized.lugar as string) || (normalized.lugar_y_direccion as string) || "Sin lugar definido",
+      ciudad: (normalized.ciudad as string) || null,
+      lugar: (normalized.lugar as string) || (normalized.lugar_y_direccion as string) || null,
       direccion: (normalized.direccion as string) || null,
-      aforo: parseNumber(normalized.aforo ?? normalized.participantes_esperados) ?? 100,
-      presupuesto: parseNumber(normalized.presupuesto) ?? 0,
+      aforo: parseNumber(normalized.aforo ?? normalized.participantes_esperados) ?? null,
+      presupuesto: parseNumber(normalized.presupuesto) ?? null,
       objetivo: (normalized.objetivo as string) || (normalized.descripcion as string) || "Objetivo general",
       activo: true,
+    };
+
+    if (!allowedEstados.has(safeEstado)) {
+      return {
+        ...payloadBase,
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+        estado: "planificado",
+      };
+    }
+
+    return {
+      ...payloadBase,
+      estado: safeEstado,
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin,
     };
   }
 
   if (entity === "campanas") {
+    const fechaInicio = toIsoDate(normalized.fecha_inicio);
+    const fechaFin = toIsoDate(normalized.fecha_fin);
     return {
       nombre: (normalized.nombre as string) || "Nueva campaña",
-      descripcion: (normalized.descripcion as string) || "Campaña creada desde el panel administrativo",
-      fecha_inicio: toIsoDate(normalized.fecha_inicio),
-      fecha_fin: toIsoDate(normalized.fecha_fin),
-      presupuesto: parseNumber(normalized.presupuesto) ?? 0,
-      activa: true,
+      ...(fechaInicio ? { fecha_inicio: fechaInicio } : {}),
+      ...(fechaFin ? { fecha_fin: fechaFin } : {}),
+      ...(normalized.objetivo_conversion || normalized.descripcion
+        ? { objetivo_conversion: (normalized.objetivo_conversion as string) || (normalized.descripcion as string) }
+        : {}),
     };
   }
 
@@ -120,10 +116,10 @@ async function buildInsertPayload(entity: string, payload: Record<string, unknow
     return {
       nombre: (normalized.nombre as string) || "Nuevo producto",
       tipo_producto_id: parseNumber(normalized.tipo_producto_id ?? normalized.categoria) ?? (await getFirstValue<number>("tipo_producto", "id")) ?? 1,
-      descripcion: (normalized.descripcion as string) || "Producto registrado",
-      sku: (normalized.sku as string) || (normalized.codigo_interno_sku as string) || `SKU-${Date.now()}`,
-      precio: parseNumber(normalized.precio ?? normalized.valor) ?? 0,
-      activo: true,
+      categoria: (normalized.categoria as string) || (normalized.tipo_producto as string) || "General",
+      sabor: (normalized.sabor as string) || (normalized.sabor_producto as string) || null,
+      presentacion: (normalized.presentacion as string) || (normalized.presentacion_producto as string) || null,
+      activo: Boolean(normalized.activo ?? true),
     };
   }
 
@@ -198,6 +194,35 @@ export async function GET(
     ].filter(Boolean);
 
     query = relatedUserIds.length ? query.in("id", relatedUserIds) : query.eq("id", "00000000-0000-0000-0000-000000000000");
+  }
+
+  if (entity === "productos" && selectedEventId) {
+    const { data: productLinks, error: productLinksError } = await supabaseAdmin
+      .from("evento_producto")
+      .select("producto_id")
+      .eq("evento_id", Number(selectedEventId));
+
+    if (productLinksError) {
+      return NextResponse.json({ ok: false, error: productLinksError.message }, { status: 500 });
+    }
+
+    const productIds = (productLinks ?? []).map((row) => row.producto_id).filter((value) => Number.isFinite(Number(value)));
+    query = productIds.length ? query.in("id", productIds) : query.eq("id", -1);
+  }
+
+  if (entity === "campanas" && selectedEventId) {
+    const { data: eventData, error: eventError } = await supabaseAdmin
+      .from("evento")
+      .select("campana_id")
+      .eq("id", Number(selectedEventId))
+      .maybeSingle();
+
+    if (eventError) {
+      return NextResponse.json({ ok: false, error: eventError.message }, { status: 500 });
+    }
+
+    const selectedCampaignId = eventData?.campana_id ?? null;
+    query = selectedCampaignId ? query.eq("id", selectedCampaignId) : query.eq("id", -1);
   }
 
   const { data, error } = await query;

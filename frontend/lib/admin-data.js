@@ -68,7 +68,7 @@ function getDisplayRows(page, rows = []) {
         ? [safeRow.nombre, safeRow.apellido].filter(Boolean).join(" ").trim() || rawName
         : rawName;
 
-    const city = safeRow.ciudad || safeRow.lugar || safeRow.ubicacion || "—";
+    let city = safeRow.ciudad || safeRow.lugar || safeRow.ubicacion || "—";
     const status = normalizeStatus(
       safeRow.estado ?? safeRow.activo ?? safeRow.activa ?? safeRow.status,
     );
@@ -81,9 +81,13 @@ function getDisplayRows(page, rows = []) {
           : safeRow.rol || safeRow.role || safeRow.role_nombre || safeRow.roleName || safeRow.role_id;
       metric = roleSource || "Sin rol";
     } else if (page === "Productos") {
-      metric = safeRow.precio ?? safeRow.valor ?? "—";
+      city = safeRow.categoria || safeRow.tipo_producto || safeRow.presentacion || safeRow.sabor || "—";
+      const productMetric = safeRow.sabor || safeRow.presentacion || safeRow.categoria || safeRow.descripcion;
+      metric = productMetric || (safeRow.precio ?? safeRow.valor ?? "—");
     } else if (page === "Campañas") {
-      metric = safeRow.presupuesto ?? safeRow.meta ?? "—";
+      const campaignDetail = safeRow.objetivo_conversion || safeRow.descripcion || safeRow.meta || "—";
+      city = campaignDetail;
+      metric = campaignDetail;
     } else {
       metric = safeRow.aforo ?? safeRow.participantes_esperados ?? safeRow.registros ?? "—";
     }

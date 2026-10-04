@@ -117,6 +117,28 @@ test("la API de eventos no usa relaciones inexistentes como role_id en la tabla 
   assert.ok(calls.some(([table, selectText]) => table === "evento" && !String(selectText).includes("role:role_id")));
 });
 
+test("las vistas de productos y campañas muestran sus campos reales del catálogo", async () => {
+  const adminData = load("lib/admin-data.js");
+
+  const products = adminData.getDisplayRows("Productos", [{
+    nombre: "Coca-Cola Original",
+    categoria: "Gaseosas",
+    sabor: "Original",
+    presentacion: "Lata 355 ml",
+  }]);
+
+  const campaigns = adminData.getDisplayRows("Campañas", [{
+    nombre: "Ruta de sabores 2026",
+    objetivo_conversion: "Aumentar ventas de temporada",
+    fecha_inicio: "2026-09-01T00:00:00.000Z",
+  }]);
+
+  assert.equal(products[0].city, "Gaseosas");
+  assert.equal(products[0].metric, "Original");
+  assert.equal(campaigns[0].city, "Aumentar ventas de temporada");
+  assert.equal(campaigns[0].metric, "Aumentar ventas de temporada");
+});
+
 test("las listas de eventos y usuarios calculan la paginación correctamente", async () => {
   const pagination = load("lib/pagination.ts");
   const result = pagination.paginateRows(Array.from({ length: 25 }, (_, index) => ({ id: index + 1 })), 2, 10);
