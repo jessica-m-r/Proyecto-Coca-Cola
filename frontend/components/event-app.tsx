@@ -1,7 +1,13 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import QRCode from "qrcode"
+import dynamic from "next/dynamic"
+import QrScannerModal from "@/components/qr-scanner-modal"
+
+const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashboard"), {
+  loading: () => <p className="stats-notice">Cargando panel…</p>,
+})
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
 type TicketUser = { id: number; nombre: string; apellido: string }
@@ -14,6 +20,14 @@ const eventPhotos = [
   heroPhoto,
   "/images/event-2.jpg",
   "/images/event-3.jpg",
+]
+
+const socialNetworks = [
+  { name: "Instagram", href: "https://www.instagram.com/cocacolabol/", image: eventPhotos[0] },
+  { name: "TikTok", href: "https://www.tiktok.com/@cocacola", image: eventPhotos[1] },
+  { name: "YouTube", href: "https://www.youtube.com/@CocaCola", image: eventPhotos[2] },
+  { name: "Facebook", href: "https://www.facebook.com/CocaColaBO/", image: eventPhotos[0] },
+  { name: "X", href: "https://x.com/CocaCola", image: eventPhotos[1] },
 ]
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -660,14 +674,7 @@ function AuthModal({
                 help="Te enviaremos tu entrada aquí"
                 required
               />
-              <Field
-                label="Celular"
-                name="celular"
-                type="tel"
-                placeholder="+591 700 00000"
-                help="Lo usaremos para WhatsApp"
-                required
-              />
+             <PhoneField />
               <Field
                 label="Contraseña"
                 name="password"
@@ -877,6 +884,53 @@ function Field({
     </label>
   )
 }
+function PhoneField() {
+  return (
+    <label className="field">
+      <span>
+        Celular <b>*</b>
+      </span>
+
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "100px minmax(140px, 1fr)",
+    gap: "8px",
+    width: "100%",
+  }}
+>
+        <select
+          defaultValue="+591"
+          aria-label="Código de país"
+          style={{ width: "100%" }}
+        >
+          <option value="+591">🇧🇴 +591</option>
+          <option value="+54">🇦🇷 +54</option>
+          <option value="+55">🇧🇷 +55</option>
+          <option value="+56">🇨🇱 +56</option>
+          <option value="+57">🇨🇴 +57</option>
+          <option value="+593">🇪🇨 +593</option>
+          <option value="+52">🇲🇽 +52</option>
+          <option value="+595">🇵🇾 +595</option>
+          <option value="+51">🇵🇪 +51</option>
+          <option value="+598">🇺🇾 +598</option>
+          <option value="+58">🇻🇪 +58</option>
+          <option value="+1">🇺🇸 +1</option>
+          <option value="+34">🇪🇸 +34</option>
+        </select>
+
+        <input
+          type="tel"
+          placeholder="Número de celular"
+          required
+          style={{ width: "100%", minWidth: 0 }}
+        />
+      </div>
+
+      <small>Lo usaremos para WhatsApp</small>
+    </label>
+  )
+}
 
 function TicketScreen({
   user,
@@ -969,6 +1023,8 @@ function TicketScreen({
 }
 
 function Landing({ onRole }: { onRole: (r: Role) => void }) {
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const closeScanner = useCallback(() => setScannerOpen(false), [])
   const [detail, setDetail] = useState(false)
   const [auth, setAuth] = useState<"login" | "register" | null>(null)
   const [ticket, setTicket] = useState(false)
@@ -1096,6 +1152,12 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
               En cada evento encontrarás puntos QR para descubrir sabores,
               participar en retos y desbloquear beneficios exclusivos.
             </p>
+            <div className="experience-scan-action">
+              <Button icon="camera" onClick={() => setScannerOpen(true)}>
+                Escanear código QR
+              </Button>
+              <small>Abre tu cámara y empieza la experiencia.</small>
+            </div>
             <div className="steps">
               {[
                 ["01", "Escanea el QR"],
@@ -1127,7 +1189,7 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
               <i />
               <Icon name="qr" size={72} />
             </div>
-            <Button>Escanear actividad</Button>
+            <Button icon="qr" onClick={() => setScannerOpen(true)}>Escanear actividad</Button>
             <small>Apunta tu cámara al código QR</small>
           </div>
         </section>
@@ -1141,21 +1203,19 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
                 en tus redes.
               </h2>
             </div>
-            <div className="social-links">
-              {["Instagram", "TikTok", "YouTube", "Facebook", "X"].map((x) => (
-                <button key={x}>
-                  {x}
-                  <Icon name="arrow" />
-                </button>
-              ))}
-            </div>
           </div>
           <div className="social-mosaic">
-            {eventPhotos.concat([heroPhoto]).map((x, i) => (
-              <div key={i}>
-                <img src={x} alt="Comunidad Coca-Cola en eventos" />
-                <span>@cocacola_bo</span>
-              </div>
+            {socialNetworks.map((network) => (
+              <a
+                key={network.name}
+                href={network.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Visitar Coca-Cola en ${network.name} (abre en otra pestaña)`}
+              >
+                <img src={network.image} alt="Comunidad Coca-Cola en eventos" />
+                <span>{network.name}<Icon name="arrow" size={16} /></span>
+              </a>
             ))}
           </div>
         </section>
@@ -1184,6 +1244,7 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
         </small>
       </footer>
       <RoleSwitcher role="cliente" onRole={onRole} />
+      {scannerOpen && <QrScannerModal onClose={closeScanner} />}
       {detail && <EventDetail onClose={() => setDetail(false)} onJoin={join} />}
       {auth && (
         <AuthModal
@@ -1331,276 +1392,6 @@ function Sidebar({
   )
 }
 
-function KpiCard({
-  label,
-  value,
-  delta,
-  icon,
-  tone,
-}: {
-  label: string
-  value: string
-  delta: string
-  icon: IconName
-  tone?: string
-}) {
-  return (
-    <article className={`kpi-card ${tone || ""}`}>
-      <div className="kpi-icon">
-        <Icon name={icon} />
-      </div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small className={delta.startsWith("+") ? "positive" : ""}>{delta}</small>
-      <div className="sparkline">
-        {[32, 42, 38, 58, 51, 68, 76, 70, 87, 92].map((h, i) => (
-          <i key={i} style={{ height: `${h}%` }} />
-        ))}
-      </div>
-    </article>
-  )
-}
-
-function BarChart() {
-  const data = [18, 34, 62, 88, 74, 56, 39, 22]
-  return (
-    <div className="chart">
-      <div className="chart-grid">
-        {[0, 1, 2, 3].map((x) => (
-          <i key={x} />
-        ))}
-      </div>
-      <div className="bars">
-        {data.map((x, i) => (
-          <div key={i}>
-            <span style={{ height: `${x}%` }} data-value={x} />
-            <small>{14 + i}:00</small>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function DashboardHome({
-  role,
-  setPage,
-}: {
-  role: Exclude<Role, "cliente">
-  setPage: (p: string) => void
-}) {
-  const isMarketing = role === "marketing",
-    isAdmin = role === "administrador"
-  return (
-    <>
-      <div className="dashboard-title">
-        <div>
-          <span>
-            {isMarketing
-              ? "ANÁLISIS DE CAMPAÑA"
-              : isAdmin
-                ? "CONTROL CENTRAL"
-                : "OPERACIÓN EN TIEMPO REAL"}
-          </span>
-          <h1>
-            {isMarketing
-              ? "Resumen ejecutivo"
-              : isAdmin
-                ? "Buenos días, María"
-                : "Coca-Cola Experience 2026"}
-          </h1>
-          <p>
-            {isMarketing
-              ? "Resultados consolidados y oportunidades del evento."
-              : isAdmin
-                ? "Esto es lo que está pasando en tu plataforma."
-                : "Sábado, 18 de abril · Fexpocruz, Santa Cruz"}
-          </p>
-        </div>
-        <div className="title-actions">
-          <Badge tone="green">
-            <i className="live-dot" /> EN VIVO
-          </Badge>
-          <select>
-            <option>Coca-Cola Experience 2026</option>
-            <option>Ritmo Urbano Sessions</option>
-          </select>
-          <Button icon="download">Exportar</Button>
-        </div>
-      </div>
-      <div className="kpi-grid">
-        <KpiCard
-          label="PARTICIPANTES"
-          value="350"
-          delta="+12% vs. meta"
-          icon="users"
-        />
-        <KpiCard
-          label="ASISTENTES"
-          value="280"
-          delta="80% asistencia"
-          icon="check"
-        />
-        <KpiCard
-          label="INTERACCIONES"
-          value="126"
-          delta="+18 hoy"
-          icon="spark"
-        />
-        <KpiCard
-          label="CONVERSIONES"
-          value="84"
-          delta="+24% tasa"
-          icon="chart"
-        />
-        <KpiCard
-          label="CANJES"
-          value="42"
-          delta="+7 última hora"
-          icon="ticket"
-        />
-        <KpiCard
-          label="SATISFACCIÓN"
-          value="4.7/5"
-          delta="+0.3 vs anterior"
-          icon="heart"
-        />
-      </div>
-      {isMarketing && (
-        <div className="natural-summary">
-          <Icon name="spark" />
-          <div>
-            <strong>Resumen inteligente</strong>
-            <p>
-              Asistieron <b>280 personas</b>, 126 interactuaron con productos y
-              se generaron <b>84 conversiones</b>. Coca-Cola Zero fue el
-              producto de mayor interés y el Laboratorio de sabores logró la
-              mejor satisfacción.
-            </p>
-          </div>
-          <button onClick={() => setPage("Insights IA")}>
-            Ver todos los insights <Icon name="arrow" />
-          </button>
-        </div>
-      )}
-      <div className="dashboard-grid">
-        <article className="panel chart-panel">
-          <div className="panel-head">
-            <div>
-              <span>AFLUENCIA</span>
-              <h3>Ingresos por hora</h3>
-            </div>
-            <div className="legend">
-              <i />
-              Check-ins <b>Pico: 17:00</b>
-            </div>
-          </div>
-          <BarChart />
-        </article>
-        <article className="panel progress-panel">
-          <div className="panel-head">
-            <div>
-              <span>OBJETIVOS</span>
-              <h3>Progreso de metas</h3>
-            </div>
-            <button>Ver detalle</button>
-          </div>
-          {[
-            ["Asistencia", "280 / 300", 93],
-            ["Interacciones", "126 / 150", 84],
-            ["Conversiones", "84 / 100", 84],
-            ["Canjes", "42 / 50", 84],
-          ].map((x) => (
-            <div className="progress-row" key={x[0]}>
-              <span>
-                {x[0]}
-                <b>{x[1]}</b>
-              </span>
-              <div>
-                <i style={{ width: `${x[2]}%` }} />
-              </div>
-            </div>
-          ))}
-        </article>
-      </div>
-      <div className="dashboard-grid lower">
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <span>ACTIVIDADES</span>
-              <h3>Mayor participación</h3>
-            </div>
-            <Button
-              kind="ghost"
-              onClick={() =>
-                setPage(role === "organizador" ? "Actividades" : "Productos")
-              }
-            >
-              Ver todas
-            </Button>
-          </div>
-          <div className="ranking">
-            {[
-              ["01", "Laboratorio de sabores", "86 participantes", "4.9"],
-              ["02", "Photocall 360°", "62 participantes", "4.8"],
-              ["03", "Reto Zero Azúcar", "45 participantes", "4.6"],
-              ["04", "Ruleta de premios", "38 participantes", "4.5"],
-            ].map((x, i) => (
-              <div key={x[0]}>
-                <b>{x[0]}</b>
-                <span>
-                  <strong>{x[1]}</strong>
-                  <small>{x[2]}</small>
-                </span>
-                <i style={{ width: `${90 - i * 15}%` }} />
-                <em>{x[3]}</em>
-              </div>
-            ))}
-          </div>
-        </article>
-        <article className="panel alerts">
-          <div className="panel-head">
-            <div>
-              <span>ALERTAS</span>
-              <h3>Requiere atención</h3>
-            </div>
-            <Badge tone="red">3 nuevas</Badge>
-          </div>
-          {[
-            [
-              "red",
-              "Aforo al 93%",
-              "Quedan 20 cupos disponibles",
-              "Hace 4 min",
-            ],
-            [
-              "yellow",
-              "Stock bajo: Coca-Cola Zero",
-              "18 muestras restantes",
-              "Hace 12 min",
-            ],
-            [
-              "green",
-              "Meta de conversiones al 84%",
-              "Faltan 16 para el objetivo",
-              "Hace 28 min",
-            ],
-          ].map((x) => (
-            <div key={x[1]} className={`alert-${x[0]}`}>
-              <i />
-              <span>
-                <strong>{x[1]}</strong>
-                <small>{x[2]}</small>
-              </span>
-              <time>{x[3]}</time>
-            </div>
-          ))}
-        </article>
-      </div>
-    </>
-  )
-}
-
 const pageDescriptions: Record<string, string> = {
   "Mis eventos": "Planifica, publica y controla cada experiencia.",
   Eventos: "Administra todos los eventos de la organización.",
@@ -1677,126 +1468,6 @@ function ScannerPage() {
           </div>
         ))}
         <Button kind="ghost">Buscar ingreso manual</Button>
-      </div>
-    </div>
-  )
-}
-
-function PowerBI() {
-  const [tab, setTab] = useState(0)
-  const tabs = [
-    "Resumen general",
-    "Participantes",
-    "Eventos",
-    "Producto y campaña",
-    "Fidelización",
-  ]
-  return (
-    <div className="powerbi">
-      <div className="architecture">
-        {[
-          "Aplicación de eventos",
-          "Base de datos",
-          "API de datos",
-          "Power BI",
-          "Dashboard ejecutivo",
-        ].map((x, i) => (
-          <div key={x}>
-            <span>
-              <Icon
-                name={
-                  i === 0
-                    ? "spark"
-                    : i === 1
-                      ? "grid"
-                      : i === 2
-                        ? "settings"
-                        : "chart"
-                }
-              />
-            </span>
-            <strong>{x}</strong>
-            <small>
-              {i === 0 ? "En vivo" : i === 1 ? "24.860 filas" : "Conectado"}
-            </small>
-            {i < 4 && <Icon name="arrow" />}
-          </div>
-        ))}
-      </div>
-      <div className="power-actions">
-        <Badge tone="green">Sincronizado hace 2 min</Badge>
-        <Button>Sincronizar ahora</Button>
-        <Button kind="secondary">Abrir en Power BI</Button>
-      </div>
-      <div className="pbi-frame">
-        <header>
-          <strong>Power BI</strong>
-          <span>Coca-Cola Event Intelligence · Dashboard ejecutivo</span>
-          <div>
-            <Button kind="ghost">Exportar</Button>
-            <Button kind="ghost">Compartir</Button>
-          </div>
-        </header>
-        <nav>
-          {tabs.map((x, i) => (
-            <button
-              className={i === tab ? "active" : ""}
-              onClick={() => setTab(i)}
-              key={x}
-            >
-              {x}
-            </button>
-          ))}
-        </nav>
-        <div className="pbi-body">
-          <aside>
-            <strong>Filtros</strong>
-            <Field label="Evento" kind="select" options={["Experience 2026"]} />
-            <Field
-              label="Ciudad"
-              kind="select"
-              options={["Todas", "Santa Cruz"]}
-            />
-            <Field label="Periodo" kind="select" options={["Abril 2026"]} />
-          </aside>
-          <main>
-            <h3>{tabs[tab]}</h3>
-            <div className="mini-kpis">
-              <KpiCard
-                label="EVENTOS"
-                value={tab === 0 ? "24" : "350"}
-                delta="+12%"
-                icon="calendar"
-              />
-              <KpiCard
-                label="ASISTENCIA"
-                value="80%"
-                delta="+8%"
-                icon="users"
-              />
-              <KpiCard
-                label="CONVERSIONES"
-                value="84"
-                delta="+24%"
-                icon="chart"
-              />
-            </div>
-            <div className="pbi-charts">
-              <div>
-                <h4>Tendencia por evento</h4>
-                <BarChart />
-              </div>
-              <div>
-                <h4>Distribución de resultados</h4>
-                <div className="donut">
-                  <span>
-                    4.7<b>Satisfacción</b>
-                  </span>
-                </div>
-              </div>
-            </div>
-          </main>
-        </div>
       </div>
     </div>
   )
@@ -1950,9 +1621,6 @@ function DataPage({
     [toast, setToast] = useState(false)
   const fields = formFieldsByPage[page]
   if (page === "Check-in QR") return <ScannerPage />
-  if (page === "Power BI") return <PowerBI />
-  if (page === "Insights IA") return <InsightsPage />
-  if (page === "Indicadores") return <IndicatorsPage />
   if (form && fields)
     return (
       <FormPage
@@ -2003,6 +1671,7 @@ function DataPage({
               : `Crear ${page.toLowerCase().replace(/s$/, "")}`}
         </Button>
       </div>
+      <p className="stats-notice">Esta pantalla operativa sigue siendo una demostración. Sus formularios todavía no guardan registros en la base de datos.</p>
       {page === "Actividades" && (
         <div className="metric-strip">
           {[
@@ -2271,172 +1940,6 @@ function FormPage({
   )
 }
 
-function IndicatorsPage() {
-  return (
-    <>
-      <div className="dashboard-title compact">
-        <div>
-          <span>MEDICIÓN</span>
-          <h1>Indicadores detallados</h1>
-          <p>Fórmulas transparentes y resultados del evento seleccionado.</p>
-        </div>
-        <Button icon="settings">Configurar metas</Button>
-      </div>
-      <div className="indicator-grid">
-        {[
-          [
-            "Asistencia efectiva",
-            "80%",
-            "asistentes ÷ registrados × 100",
-            "280 / 350",
-          ],
-          [
-            "Tasa de participación",
-            "45%",
-            "participantes en actividad ÷ asistentes × 100",
-            "126 / 280",
-          ],
-          [
-            "Tasa de conversión",
-            "24%",
-            "conversiones ÷ registrados × 100",
-            "84 / 350",
-          ],
-          [
-            "Índice de recurrencia",
-            "32%",
-            "recurrentes ÷ participantes × 100",
-            "112 / 350",
-          ],
-          [
-            "Consentimiento",
-            "68%",
-            "registros con consentimiento ÷ registros × 100",
-            "238 / 350",
-          ],
-          ["NPS", "+67", "% promotores − % detractores", "76% − 9%"],
-        ].map((x) => (
-          <article className="panel" key={x[0]}>
-            <span>{x[0]}</span>
-            <strong>{x[1]}</strong>
-            <p>{x[3]}</p>
-            <small>FÓRMULA · {x[2]}</small>
-          </article>
-        ))}
-      </div>
-      <div className="dashboard-grid">
-        <article className="panel chart-panel">
-          <div className="panel-head">
-            <div>
-              <span>OPERACIÓN</span>
-              <h3>Horario de mayor afluencia</h3>
-            </div>
-          </div>
-          <BarChart />
-        </article>
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <span>EMBUDO</span>
-              <h3>Niveles de interacción</h3>
-            </div>
-          </div>
-          <div className="funnel">
-            {[
-              ["Visitante", 520],
-              ["Registrado", 350],
-              ["Participó", 198],
-              ["Probó producto", 126],
-              ["Aceptó información", 104],
-              ["Conversión", 84],
-            ].map((x, i) => (
-              <div style={{ width: `${100 - i * 9}%` }} key={x[0]}>
-                <span>
-                  {i + 1}. {x[0]}
-                </span>
-                <b>{x[1]}</b>
-              </div>
-            ))}
-          </div>
-        </article>
-      </div>
-    </>
-  )
-}
-
-function InsightsPage() {
-  const [query, setQuery] = useState("")
-  return (
-    <>
-      <div className="dashboard-title compact">
-        <div>
-          <span>INTELIGENCIA ARTIFICIAL</span>
-          <h1>Pregúntale a tus datos</h1>
-          <p>Recomendaciones accionables basadas en el desempeño real.</p>
-        </div>
-        <Badge tone="dark">
-          <Icon name="spark" size={15} /> ACTUALIZADO HOY
-        </Badge>
-      </div>
-      <div className="insight-hero">
-        <Icon name="spark" size={30} />
-        <h2>
-          ¿Qué quieres entender
-          <br />
-          sobre tus eventos?
-        </h2>
-        <div>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ej. ¿Qué actividad generó más conversiones?"
-          />
-          <Button icon="arrow">Analizar</Button>
-        </div>
-        <small>Prueba: “Predice la asistencia del próximo evento”</small>
-      </div>
-      <div className="insight-grid">
-        {[
-          [
-            "OPORTUNIDAD",
-            "Zero lidera entre jóvenes",
-            "El segmento de 18–24 años muestra 34% más intención de compra por Coca-Cola Zero. Activa un cupón específico para este grupo.",
-          ],
-          [
-            "PATRÓN",
-            "El sampling impulsa conversión",
-            "Quienes participaron en el Laboratorio de sabores convierten 2.4 veces más que el resto de asistentes.",
-          ],
-          [
-            "PREDICCIÓN",
-            "Próxima asistencia: 328",
-            "El modelo estima 82% de asistencia para Ritmo Urbano Sessions, con un rango probable de 312–344 personas.",
-          ],
-          [
-            "ALERTA",
-            "Stock en riesgo",
-            "Coca-Cola Zero llegará al mínimo operativo en 42 minutos al ritmo actual de entrega.",
-          ],
-        ].map((x, i) => (
-          <article key={x[1]}>
-            <div>
-              <Icon name={i === 3 ? "bell" : "spark"} />
-              <Badge tone={i === 3 ? "red" : i === 0 ? "green" : "neutral"}>
-                {x[0]}
-              </Badge>
-            </div>
-            <h3>{x[1]}</h3>
-            <p>{x[2]}</p>
-            <button>
-              Ver análisis <Icon name="arrow" />
-            </button>
-          </article>
-        ))}
-      </div>
-    </>
-  )
-}
-
 function AppShell({
   role,
   onRole,
@@ -2446,6 +1949,7 @@ function AppShell({
 }) {
   const [page, setPage] = useState(navs[role][0].label)
   const isHome = page === navs[role][0].label
+  const isStats = isHome || ["Indicadores", "Embudo", "Satisfacción y NPS", "Segmentación", "Mapa de asistentes", "Comparar eventos", "Promociones", "Insights IA", "Reporte ejecutivo", "Reportes", "Power BI"].includes(page) || (role === "marketing" && page === "Productos")
   return (
     <div className="app-shell">
       <Sidebar role={role} page={page} setPage={setPage} />
@@ -2459,7 +1963,7 @@ function AppShell({
               ? "Panel administrativo"
               : "Evento activo"}
           </span>
-          <strong>Coca-Cola Experience 2026</strong>
+          <strong>Estadísticas de eventos</strong>
         </div>
         <div className="top-actions">
           <button>
@@ -2473,8 +1977,8 @@ function AppShell({
         </div>
       </header>
       <main className="dashboard-main">
-        {isHome ? (
-          <DashboardHome role={role} setPage={setPage} />
+        {isStats ? (
+          <StatisticsDashboard page={page} role={role} onPage={setPage} />
         ) : (
           <DataPage page={page} role={role} />
         )}
