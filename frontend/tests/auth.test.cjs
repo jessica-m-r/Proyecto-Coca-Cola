@@ -158,6 +158,7 @@ test("formulario conserva campos desmontados hasta el POST final de registro", a
       return [states[index], (value) => { states[index] = typeof value === "function" ? value(states[index]) : value; }];
     } },
     "next/dynamic": { default: () => () => null },
+    "./ml-predictions": { MlPredictions: () => null },
     "@/components/qr-scanner-modal": { default: () => null },
     "@/lib/auth/forms": load("lib/auth/forms.ts"),
     "@/lib/demo-tickets": load("lib/demo-tickets.ts"),
@@ -258,6 +259,7 @@ test("inscripción pendiente continúa al autenticarse y abre el ticket del even
       useEffect: (callback) => effects.push(callback),
     },
     "next/dynamic": { default: () => () => null },
+    "./ml-predictions": { MlPredictions: () => null },
     "@/components/qr-scanner-modal": { default: () => null },
     "@/lib/auth/forms": load("lib/auth/forms.ts"),
     "@/lib/demo-tickets": load("lib/demo-tickets.ts"),

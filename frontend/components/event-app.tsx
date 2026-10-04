@@ -10,6 +10,7 @@ import QrScannerModal from "@/components/qr-scanner-modal"
 const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashboard"), {
   loading: () => <p className="stats-notice">Cargando panel…</p>,
 })
+import { MlPredictions } from "./ml-predictions"
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
 type AccountUser = { id: number; nombre: string; apellido: string | null; email: string | null }
@@ -1301,6 +1302,7 @@ const navs: Record<Exclude<Role, "cliente">, {
     { label: "Actividades", icon: "spark" },
     { label: "Degustaciones", icon: "heart" },
     { label: "Encuestas", icon: "chart" },
+    { label: "Predicciones IA", icon: "spark" },
     { label: "Observaciones", icon: "eye" },
   ],
   administrador: [
@@ -1311,6 +1313,7 @@ const navs: Record<Exclude<Role, "cliente">, {
     { label: "Productos", icon: "heart" },
     { label: "Campañas", icon: "spark" },
     { label: "Indicadores", icon: "chart" },
+    { label: "Predicciones IA", icon: "spark" },
     { label: "Automatizaciones", icon: "settings" },
     { label: "Reportes", icon: "download" },
     { label: "Integraciones", icon: "grid" },
@@ -1432,6 +1435,7 @@ const pageDescriptions: Record<string, string> = {
   Automatizaciones: "Mensajes que se activan en el momento correcto.",
   Integraciones: "Conecta tus fuentes y herramientas de negocio.",
   Indicadores: "Métricas detalladas y fórmulas de medición.",
+  "Predicciones IA": "Predicción de comportamiento por gustos: asistencia, segmentos y pronóstico del evento.",
   "Power BI": "Dashboard ejecutivo y sincronización de datos.",
   "Insights IA": "Pregúntale a los datos y descubre oportunidades.",
 }
@@ -1646,6 +1650,7 @@ function DataPage({
     [toast, setToast] = useState(false)
   const fields = formFieldsByPage[page]
   if (page === "Check-in QR") return <ScannerPage />
+  if (page === "Predicciones IA") return <MlPredictions role={role} />
   if (form && fields)
     return (
       <FormPage
