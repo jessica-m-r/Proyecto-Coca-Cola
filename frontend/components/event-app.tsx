@@ -680,12 +680,22 @@ function AuthModal({
           {mode === "register" && step === 2 && (
             <>
               <Field
-                label="Ciudad"
-                name="ciudad"
-                kind="select"
-                options={["Santa Cruz", "La Paz", "Cochabamba", "Sucre"]}
-                required
-              />
+  label="Departamento"
+  name="ciudad"
+  kind="select"
+  options={[
+    "La Paz",
+    "Cochabamba",
+    "Santa Cruz",
+    "Oruro",
+    "Potosí",
+    "Chuquisaca",
+    "Tarija",
+    "Beni",
+    "Pando"
+  ]}
+  required
+/>
               <fieldset>
                 <legend>
                   Rango de edad <b>*</b>
@@ -752,7 +762,6 @@ function AuthModal({
                 kind="select"
                 options={[
                   "Redes sociales",
-                  "Código QR",
                   "Amigo o familiar",
                   "Punto de venta",
                   "Publicidad",
@@ -761,7 +770,7 @@ function AuthModal({
                 required
               />
               <div className="promo-field">
-                <Field label="Código promocional" placeholder="EXPERIENCE26" />
+                <Field label="Código promocional (opcional) " placeholder="EXPERIENCE26" />
                 <Button kind="secondary">Validar</Button>
               </div>
               <label className="check-card">
