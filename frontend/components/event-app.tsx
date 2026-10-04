@@ -500,6 +500,9 @@ function AuthModal({
     const fd = new FormData(e.currentTarget)
     const current = Object.fromEntries(fd.entries()) as Record<string, string>
     current.preferencias = fd.getAll("preferencias").join(",")
+    if (current.celular !== undefined || current.phone_code !== undefined) {
+      current.celular = `${current.phone_code ?? ""}${current.celular ?? ""}`.trim()
+    }
 
     if (mode === "forgot") {
       setLoading(true)
@@ -895,6 +898,7 @@ function PhoneField() {
   }}
 >
         <select
+          name="phone_code"
           defaultValue="+591"
           aria-label="Código de país"
           style={{ width: "100%" }}
@@ -916,6 +920,7 @@ function PhoneField() {
 
         <input
           type="tel"
+          name="celular"
           placeholder="Número de celular"
           required
           style={{ width: "100%", minWidth: 0 }}
