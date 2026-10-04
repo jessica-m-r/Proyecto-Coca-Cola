@@ -56,3 +56,95 @@ test("la API permite consultar sin sesión, valida IDs y detecta eventos inexist
   assert.equal(response.body.data.selected.evento_id, 2);
   assert.equal(response.headers["Cache-Control"], "private, no-store");
 });
+
+test("la API de eventos no usa relaciones inexistentes como role_id en la tabla evento", async () => {
+  const rows = [{ id: "evt-1", nombre: "Festival de prueba" }, { id: "evt-2", nombre: "Cumbre interna" }];
+  const calls = [];
+  const makeQuery = (table, data) => {
+    const query = {
+      select(selectText) {
+        calls.push([table, selectText]);
+        if (table === "evento" && String(selectText).includes("role:role_id")) {
+          throw new Error("relation role_id not found");
+        }
+        return query;
+      },
+      in() { return query; },
+      eq() { return query; },
+      maybeSingle() { return Promise.resolve({ data: data[0] ?? null, error: null }); },
+      then(resolve) { Promise.resolve({ data, error: null }).then(resolve); return query; },
+    };
+    return query;
+  };
+
+  const api = load("app/api/admin/[entity]/route.ts", {
+    "next/server": {
+      NextResponse: {
+        json(body, options = {}) {
+          return { body, status: options.status ?? 200 }; 
+        },
+      },
+    },
+    "@/lib/admin-data": {
+      resolveUserRoleIdsForEntity: () => [1],
+    },
+    "@/lib/supabase/admin": {
+      supabaseAdmin: {
+        from(table) {
+          if (table === "role") {
+            return {
+              select() { return this; },
+              in() { return this; },
+              ilike() { return this; },
+              limit() { return this; },
+              maybeSingle() { return Promise.resolve({ data: { id: 1 }, error: null }); },
+            };
+          }
+          if (table === "evento") return makeQuery(table, rows);
+          return makeQuery(table, []);
+        },
+      },
+    },
+    "@/lib/schema-fallback": {
+      normalizeEventStatus: (value) => value,
+      stripUnsupportedInsertColumns: (value) => value,
+    },
+  });
+
+  const response = await api.GET(new Request("https://example.test/api/admin/eventos"), { params: Promise.resolve({ entity: "eventos" }) });
+  assert.equal(response.status, 200);
+  assert.equal(response.body.data.length, 2);
+  assert.ok(calls.some(([table, selectText]) => table === "evento" && !String(selectText).includes("role:role_id")));
+});
+
+test("las vistas de productos y campañas muestran sus campos reales del catálogo", async () => {
+  const adminData = load("lib/admin-data.js");
+
+  const products = adminData.getDisplayRows("Productos", [{
+    nombre: "Coca-Cola Original",
+    categoria: "Gaseosas",
+    sabor: "Original",
+    presentacion: "Lata 355 ml",
+  }]);
+
+  const campaigns = adminData.getDisplayRows("Campañas", [{
+    nombre: "Ruta de sabores 2026",
+    objetivo_conversion: "Aumentar ventas de temporada",
+    fecha_inicio: "2026-09-01T00:00:00.000Z",
+  }]);
+
+  assert.equal(products[0].city, "Gaseosas");
+  assert.equal(products[0].metric, "Original");
+  assert.equal(campaigns[0].city, "Aumentar ventas de temporada");
+  assert.equal(campaigns[0].metric, "Aumentar ventas de temporada");
+});
+
+test("las listas de eventos y usuarios calculan la paginación correctamente", async () => {
+  const pagination = load("lib/pagination.ts");
+  const result = pagination.paginateRows(Array.from({ length: 25 }, (_, index) => ({ id: index + 1 })), 2, 10);
+  assert.equal(result.page, 2);
+  assert.equal(result.totalPages, 3);
+  assert.equal(result.items.length, 10);
+  assert.equal(result.items[0].id, 11);
+  assert.equal(result.items.at(-1).id, 20);
+});
