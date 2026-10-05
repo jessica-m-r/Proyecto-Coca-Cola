@@ -114,3 +114,4 @@ mismas vistas `v_*` sin datos personales, más `v_dim_evento`, `v_report_histori
 `backend/supabase/seed/report_runs_demo.sql`.
 
 Validación local: `npm run typecheck`, `npm run lint`, `npm test` y `npm run build`.
+
