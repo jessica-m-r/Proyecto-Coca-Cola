@@ -55,7 +55,7 @@ function getDisplayRows(page, rows = []) {
 
   return rows.map((row, index) => {
     const safeRow = row ?? {};
-    const rawName =
+    const name =
       safeRow.nombre ||
       safeRow.titulo ||
       safeRow.title ||
@@ -63,31 +63,20 @@ function getDisplayRows(page, rows = []) {
       safeRow.sku ||
       `Registro ${index + 1}`;
 
-    const fullName =
-      page === "Usuarios y roles" || page === "Participantes"
-        ? [safeRow.nombre, safeRow.apellido].filter(Boolean).join(" ").trim() || rawName
-        : rawName;
-
-    let city = safeRow.ciudad || safeRow.lugar || safeRow.ubicacion || "—";
+    const city = safeRow.ciudad || safeRow.lugar || safeRow.ubicacion || "—";
     const status = normalizeStatus(
       safeRow.estado ?? safeRow.activo ?? safeRow.activa ?? safeRow.status,
     );
 
     let metric = "—";
-    if (page === "Participantes" || page === "Usuarios y roles") {
-      const roleSource =
-        typeof safeRow.role === "object" && safeRow.role && "nombre" in safeRow.role
-          ? safeRow.role.nombre
-          : safeRow.rol || safeRow.role || safeRow.role_nombre || safeRow.roleName || safeRow.role_id;
-      metric = roleSource || "Sin rol";
+    if (page === "Participantes") {
+      metric = safeRow.role_id ?? safeRow.nivel ?? safeRow.activo ?? "Activo";
     } else if (page === "Productos") {
-      city = safeRow.categoria || safeRow.tipo_producto || safeRow.presentacion || safeRow.sabor || "—";
-      const productMetric = safeRow.sabor || safeRow.presentacion || safeRow.categoria || safeRow.descripcion;
-      metric = productMetric || (safeRow.precio ?? safeRow.valor ?? "—");
+      metric = safeRow.precio ?? safeRow.valor ?? safeRow.categoria ?? "—";
     } else if (page === "Campañas") {
-      const campaignDetail = safeRow.objetivo_conversion || safeRow.descripcion || safeRow.meta || "—";
-      city = campaignDetail;
-      metric = campaignDetail;
+      metric = safeRow.presupuesto ?? safeRow.meta ?? "—";
+    } else if (page === "Usuarios y roles") {
+      metric = safeRow.rol ?? safeRow.role ?? safeRow.role_id ?? "—";
     } else {
       metric = safeRow.aforo ?? safeRow.participantes_esperados ?? safeRow.registros ?? "—";
     }
@@ -100,7 +89,7 @@ function getDisplayRows(page, rows = []) {
       "—";
 
     return {
-      name: fullName,
+      name,
       city,
       status,
       metric,

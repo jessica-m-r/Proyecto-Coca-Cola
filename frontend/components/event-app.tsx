@@ -1,22 +1,21 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
-import QRCode from "qrcode"
-import { demoQrPayload, enrollDemoEvent, readDemoTickets, type DemoTicket } from "@/lib/demo-tickets"
-import { loginSchema, registerSchema } from "@/lib/auth/forms"
 import QrScannerModal from "@/components/qr-scanner-modal"
 
 const StatisticsDashboard = dynamic(() => import("@/components/statistics-dashboard"), {
   loading: () => <p className="stats-notice">Cargando panel…</p>,
 })
-import { MlPredictions } from "./ml-predictions"
+
+const IntelligenceWorkspace = dynamic(() => import("./intelligence-workspace"), {
+  loading: () => <p className="stats-notice">Preparando tu espacio de trabajo…</p>,
+})
 import { getAdminEntityForPage, getDisplayRows } from "@/lib/admin-data"
 import { getCatalogOptionsForField } from "@/lib/catalog-options"
-import { paginateRows } from "@/lib/pagination"
 
 type Role = "cliente" | "organizador" | "administrador" | "marketing"
-type AccountUser = { id: number; nombre: string; apellido: string | null; email: string | null }
+type TicketUser = { id: number; nombre: string; apellido: string }
 type IconName = "arrow" | "bell" | "calendar" | "camera" | "chart" | "check" | "chevron" | "clock" | "download" | "eye" | "filter" | "grid" | "heart" | "home" | "map" | "menu" | "plus" | "qr" | "search" | "settings" | "spark" | "ticket" | "users" | "x"
 
 const heroPhoto =
@@ -224,7 +223,6 @@ function Badge({
 
 const events = [
   {
-    id: "experience-2026",
     title: "Coca-Cola Experience 2026",
     type: "Experiencia de marca",
     date: "18 ABR",
@@ -236,7 +234,6 @@ const events = [
     image: eventPhotos[0],
   },
   {
-    id: "ritmo-urbano",
     title: "Ritmo Urbano Sessions",
     type: "Concierto",
     date: "26 ABR",
@@ -248,7 +245,6 @@ const events = [
     image: eventPhotos[1],
   },
   {
-    id: "fan-zone",
     title: "Copa Coca-Cola Fan Zone",
     type: "Deportivo",
     date: "03 MAY",
@@ -264,13 +260,7 @@ const events = [
 function ClientNavbar({
   onLogin,
   onRole,
-  user,
-  loading,
-  onLogout,
 }: {
-  user: AccountUser | null
-  loading: boolean
-  onLogout: () => void
   onLogin: (mode: "login" | "register") => void
   onRole: (r: Role) => void
 }) {
@@ -280,21 +270,13 @@ function ClientNavbar({
       <Logo />
       <nav>
         <a href="#eventos">Eventos</a>
-        <a href="#tickets">Tus tickets</a>
         <a href="#social">Redes sociales</a>
       </nav>
       <div className="nav-actions">
-        {loading ? <span role="status">Cargando sesión…</span> : user ? (
-          <>
-            <span className="account-greeting">Hola, {user.nombre}</span>
-            <Button kind="ghost" onClick={onLogout}>Cerrar sesión</Button>
-          </>
-        ) : (
-          <>
-            <Button kind="ghost" onClick={() => onLogin("login")}>Iniciar sesión</Button>
-            <Button onClick={() => onLogin("register")}>Crear cuenta</Button>
-          </>
-        )}
+        <Button kind="ghost" onClick={() => onLogin("login")}>
+          Iniciar sesión
+        </Button>
+        <Button onClick={() => onLogin("register")}>Inscribirme</Button>
       </div>
       <button
         className="mobile-menu"
@@ -306,19 +288,8 @@ function ClientNavbar({
       {open && (
         <div className="mobile-nav">
           <a href="#eventos">Eventos</a>
-          <a href="#tickets">Tus tickets</a>
-        <a href="#social">Redes sociales</a>
-          {loading ? <span role="status">Cargando sesión…</span> : user ? (
-            <>
-              <span>Hola, {user.nombre}</span>
-              <Button kind="ghost" onClick={() => { setOpen(false); onLogout() }}>Cerrar sesión</Button>
-            </>
-          ) : (
-            <>
-              <Button onClick={() => { setOpen(false); onLogin("login") }}>Iniciar sesión</Button>
-              <Button onClick={() => { setOpen(false); onLogin("register") }}>Crear cuenta</Button>
-            </>
-          )}
+          <a href="#social">Redes sociales</a>
+          <Button onClick={() => onLogin("login")}>Iniciar sesión</Button>
           <button onClick={() => onRole("organizador")}>
             Vista organizador
           </button>
@@ -374,13 +345,9 @@ function EventCard({
 }
 
 function EventDetail({
-  event,
-  enrolled,
   onClose,
   onJoin,
 }: {
-  event: typeof events[number]
-  enrolled: boolean
   onClose: () => void
   onJoin: () => void
 }) {
@@ -391,11 +358,13 @@ function EventDetail({
           <Icon name="x" />
         </button>
         <div className="detail-hero">
-          <img src={event.image} alt={event.title} />
+          <img src={heroPhoto} alt="Concierto de Coca-Cola Experience 2026" />
           <div>
-            <Badge tone="red">{event.type}</Badge>
+            <Badge tone="red">EXPERIENCIA DE MARCA</Badge>
             <h2>
-              {event.title}
+              Coca-Cola
+              <br />
+              Experience 2026
             </h2>
             <p>
               Una tarde para descubrir nuevos sabores, música en vivo y
@@ -415,7 +384,7 @@ function EventDetail({
                 aún más.
               </p>
             </section>
-            {event.id === "experience-2026" && <section>
+            <section>
               <span className="section-kicker">CRONOGRAMA</span>
               <div className="timeline">
                 {[
@@ -450,7 +419,7 @@ function EventDetail({
                   </div>
                 ))}
               </div>
-            </section>}
+            </section>
             <section>
               <span className="section-kicker">ACTIVIDADES</span>
               <div className="activity-grid">
@@ -470,31 +439,32 @@ function EventDetail({
             </section>
           </main>
           <aside className="booking-card">
-            <Badge tone="green">{event.price}</Badge>
+            <Badge tone="green">GRATIS</Badge>
             <h3>Reserva tu lugar</h3>
             <div>
               <Icon name="calendar" />
               <span>
-                <strong>{event.date} · 2026</strong>
-                <small>{event.time}</small>
+                <strong>Sábado, 18 de abril</strong>
+                <small>16:00 — 22:00</small>
               </span>
             </div>
             <div>
               <Icon name="map" />
               <span>
-                <strong>{event.place}</strong>
+                <strong>Fexpocruz</strong>
+                <small>Santa Cruz de la Sierra</small>
               </span>
             </div>
             <div className="capacity">
               <span>
-                <b>{event.spots}</b> cupos disponibles
+                <b>48</b> cupos disponibles
               </span>
               <div>
                 <i />
               </div>
             </div>
             <Button onClick={onJoin} icon="arrow">
-              {enrolled ? "Ver mi ticket" : "Inscribirme ahora"}
+              Inscribirme ahora
             </Button>
             <small>Entrada personal. Recibirás tu QR al confirmar.</small>
           </aside>
@@ -505,26 +475,23 @@ function EventDetail({
 }
 
 function AuthModal({
-  mode,
-  onModeChange,
+  mode: initialMode,
   onClose,
   onDone,
 }: {
   mode: "login" | "register"
-  onModeChange: (mode: "login" | "register") => void
   onClose: () => void
-  onDone: (user: AccountUser, created: boolean) => void
+  onDone: (user?: TicketUser) => void
 }) {
+  const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [age, setAge] = useState("")
   const [prefs, setPrefs] = useState<string[]>([])
-  const [promoStatus, setPromoStatus] = useState<string | null>(null)
-  const [registrationData, setRegistrationData] = useState<Record<string, string>>({})
+  const formData = useRef<Record<string, string>>({})
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (loading) return
     setError(null)
     const fd = new FormData(e.currentTarget)
     const current = Object.fromEntries(fd.entries()) as Record<string, string>
@@ -533,60 +500,57 @@ function AuthModal({
       current.celular = `${current.phone_code ?? ""}${current.celular ?? ""}`.trim()
     }
 
+    if (mode === "forgot") {
+      setLoading(true)
+      window.setTimeout(() => {
+        setLoading(false)
+        onDone()
+      }, 650)
+      return
+    }
+
     if (mode === "register" && step < 3) {
       if (step === 1 && current.password !== current.password2) {
         setError("Las contraseñas no coinciden")
-        return
-      }
-      if (step === 1 && (current.password.length < 8 || current.password.length > 256)) {
-        setError("La contraseña debe tener entre 8 y 256 caracteres")
         return
       }
       if (step === 2 && !age) {
         setError("Selecciona tu rango de edad")
         return
       }
-      setRegistrationData((saved) => ({ ...saved, ...current, age }))
+      Object.assign(formData.current, current, { age })
       setStep(step + 1)
       return
     }
 
+    setLoading(true)
     try {
       const payload =
         mode === "register"
           ? {
-              ...registrationData,
+              ...formData.current,
               ...current,
               preferencias: (current.preferencias ||
-                registrationData.preferencias ||
+                formData.current.preferencias ||
                 ""
               )
                 .split(",")
                 .filter(Boolean),
             }
-          : { email: current.email, password: current.password, remember: fd.has("remember") }
-      const validated = mode === "register" ? registerSchema.safeParse(payload) : loginSchema.safeParse(payload)
-      if (!validated.success) {
-        if (mode === "register") setStep(1)
-        setError(validated.error.issues[0]?.message ?? "Completa los datos de tu cuenta")
-        return
-      }
-      setLoading(true)
+          : { email: current.email, password: current.password }
       const res = await fetch(
         mode === "register" ? "/api/usuarios/register" : "/api/auth/login",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(validated.data),
+          body: JSON.stringify(payload),
         }
       )
       const json = await res.json()
       if (!res.ok || !json.ok) {
         throw new Error(json.error || "Ocurrió un error, intenta de nuevo")
       }
-      if (!json.data?.id) throw new Error("No se pudo cargar tu cuenta")
-      setRegistrationData({})
-      onDone(json.data, mode === "register")
+      onDone(json.data ?? undefined)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ocurrió un error")
     } finally {
@@ -608,7 +572,7 @@ function AuthModal({
           </div>
           <small>Medir. Entender. Mejorar cada experiencia.</small>
         </div>
-        <form key={`${mode}-${step}`} onSubmit={submit} className="auth-form">
+        <form onSubmit={submit} className="auth-form">
           <button
             className="modal-close"
             onClick={onClose}
@@ -628,7 +592,9 @@ function AuthModal({
           <h2>
             {mode === "login"
               ? "Bienvenido de nuevo"
-              : step === 1
+              : mode === "forgot"
+                ? "Recupera tu acceso"
+                : step === 1
                   ? "Crea tu cuenta"
                   : step === 2
                     ? "Cuéntanos sobre ti"
@@ -637,12 +603,14 @@ function AuthModal({
           <p>
             {mode === "login"
               ? "Tus entradas, cupones y experiencias están aquí."
-              : "Personaliza tu experiencia Coca-Cola."}
+              : mode === "forgot"
+                ? "Te enviaremos un código de 6 dígitos."
+                : "Personaliza tu experiencia Coca-Cola."}
           </p>
           {mode === "login" && (
             <>
               <Field
-                label="Correo electrónico"
+                label="Correo o celular"
                 name="email"
                 type="email"
                 placeholder="nombre@correo.com"
@@ -657,36 +625,51 @@ function AuthModal({
               />
               <div className="form-inline">
                 <label>
-                  <input type="checkbox" name="remember" /> Recordarme
+                  <input type="checkbox" /> Recordarme
                 </label>
+                <button type="button" onClick={() => setMode("forgot")}>
+                  Olvidé mi contraseña
+                </button>
+              </div>
+            </>
+          )}
+          {mode === "forgot" && (
+            <>
+              <Field
+                label="Correo o celular"
+                type="email"
+                placeholder="nombre@correo.com"
+                required
+              />
+              <div className="info-box">
+                Usaremos el canal asociado a tu cuenta. El código vence en 10
+                minutos.
               </div>
             </>
           )}
           {mode === "register" && step === 1 && (
             <div className="field-grid">
-              <Field label="Nombre" name="nombre" defaultValue={registrationData.nombre} placeholder="Ej. Valeria" required />
-              <Field label="Apellido" name="apellido" defaultValue={registrationData.apellido} placeholder="Ej. Rojas" required />
+              <Field label="Nombre" name="nombre" placeholder="Ej. Valeria" required />
+              <Field label="Apellido" name="apellido" placeholder="Ej. Rojas" required />
               <Field
                 label="Correo electrónico"
                 name="email"
                 type="email"
                 placeholder="nombre@correo.com"
-                defaultValue={registrationData.email}
+                help="Te enviaremos tu entrada aquí"
                 required
               />
-             <PhoneField defaultValue={registrationData.celular} phoneCode={registrationData.phone_code} />
+             <PhoneField />
               <Field
                 label="Contraseña"
                 name="password"
                 type="password"
-                defaultValue={registrationData.password}
                 placeholder="8+ caracteres"
                 required
               />
               <Field
                 label="Confirmar contraseña"
                 name="password2"
-                defaultValue={registrationData.password2}
                 type="password"
                 placeholder="Repite tu contraseña"
                 required
@@ -698,7 +681,6 @@ function AuthModal({
               <Field
   label="Departamento"
   name="ciudad"
-  defaultValue={registrationData.ciudad}
   kind="select"
   options={[
     "La Paz",
@@ -736,7 +718,7 @@ function AuthModal({
               </fieldset>
               <fieldset>
                 <legend>
-                  Preferencias de producto (opcional)
+                  Preferencias de producto <b>*</b>
                 </legend>
                 <div className="preference-grid">
                   {[
@@ -774,16 +756,26 @@ function AuthModal({
           )}
           {mode === "register" && step === 3 && (
             <>
-              <Field label="¿Dónde nos conociste?" name="fuente" kind="select" options={["Redes sociales", "Amigo o familiar", "Punto de venta", "Publicidad", "Evento anterior"]} required />
+              <Field
+                label="¿Cómo te enteraste?"
+                kind="select"
+                options={[
+                  "Redes sociales",
+                  "Amigo o familiar",
+                  "Punto de venta",
+                  "Publicidad",
+                  "Evento anterior",
+                ]}
+                required
+              />
               <div className="promo-field">
-                <Field label="Código promocional (opcional)" name="codigo_promocional" placeholder="EXPERIENCE26" />
-                <button type="button" className="btn btn-secondary" onClick={(e) => {
-                  const form = e.currentTarget.closest("form")
-                  const code = form ? String(new FormData(form).get("codigo_promocional") ?? "").trim().toUpperCase() : ""
-                  setPromoStatus(!code ? "Ingresa un código" : code === "EXPERIENCE26" ? "Código de ejemplo válido" : "Código no válido")
-                }}>Validar</button>
+                <Field label="Código promocional (opcional) " placeholder="EXPERIENCE26" />
+                <Button kind="secondary">Validar</Button>
               </div>
-              {promoStatus && <p role="status">{promoStatus}</p>}
+              <label className="check-card">
+                <input type="checkbox" /> Quiero recibir promociones y novedades
+                por correo, WhatsApp o notificaciones.
+              </label>
               <label className="check-card">
                 <input type="checkbox" required /> Acepto los términos y la
                 política de privacidad. <b>*</b>
@@ -799,33 +791,27 @@ function AuthModal({
               ? "Procesando..."
               : mode === "login"
                 ? "Iniciar sesión"
-                : step < 3
+                : mode === "forgot"
+                  ? "Enviar código"
+                  : step < 3
                     ? "Siguiente"
                     : "Crear mi cuenta"}
           </Button>
-          {mode === "register" && step > 1 && (
-            <Button kind="ghost" disabled={loading} onClick={() => { setStep(step - 1); setError(null) }}>Volver</Button>
-          )}
           {error && (
             <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </p>
           )}
-          {(
+          {mode !== "forgot" && (
             <div className="switch-auth">
               {mode === "login"
                 ? "¿Aún no tienes cuenta?"
                 : "¿Ya tienes una cuenta?"}
               <button
                 type="button"
-                disabled={loading}
                 onClick={() => {
-                  onModeChange(mode === "login" ? "register" : "login")
+                  setMode(mode === "login" ? "register" : "login")
                   setStep(1)
-                  setError(null)
-                  setRegistrationData({})
-                  setAge("")
-                  setPrefs([])
                 }}
               >
                 {mode === "login" ? "Crear cuenta" : "Iniciar sesión"}
@@ -898,7 +884,7 @@ function Field({
     </label>
   )
 }
-function PhoneField({ defaultValue, phoneCode = "+591" }: { defaultValue?: string; phoneCode?: string }) {
+function PhoneField() {
   return (
     <label className="field">
       <span>
@@ -915,7 +901,7 @@ function PhoneField({ defaultValue, phoneCode = "+591" }: { defaultValue?: strin
 >
         <select
           name="phone_code"
-          defaultValue={phoneCode}
+          defaultValue="+591"
           aria-label="Código de país"
           style={{ width: "100%" }}
         >
@@ -937,118 +923,28 @@ function PhoneField({ defaultValue, phoneCode = "+591" }: { defaultValue?: strin
         <input
           type="tel"
           name="celular"
-          defaultValue={defaultValue?.startsWith(phoneCode) ? defaultValue.slice(phoneCode.length) : defaultValue}
           placeholder="Número de celular"
           required
           style={{ width: "100%", minWidth: 0 }}
         />
       </div>
 
+      <small>Lo usaremos para WhatsApp</small>
     </label>
   )
-}
-
-function TicketScreen({ ticket, onClose }: { ticket: DemoTicket; onClose: () => void }) {
-  const event = events.find((event) => event.id === ticket.eventId)
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const [qrError, setQrError] = useState(false)
-  useEffect(() => {
-    let canceled = false
-    setQrDataUrl(null)
-    setQrError(false)
-    QRCode.toDataURL(demoQrPayload(ticket), { width: 280, margin: 2 })
-      .then((url) => { if (!canceled) setQrDataUrl(url) })
-      .catch(() => { if (!canceled) setQrError(true) })
-    return () => { canceled = true }
-  }, [ticket])
-  if (!event) return null
-  return <div className="modal-backdrop" onMouseDown={onClose}>
-    <div className="ticket-modal" role="dialog" aria-modal="true" aria-label="Ticket de ejemplo" onMouseDown={(e) => e.stopPropagation()}>
-      <button className="modal-close" aria-label="Cerrar ticket" onClick={onClose}><Icon name="x" /></button>
-      <div className="success-mark"><Icon name="check" size={32} /></div>
-      <span className="section-kicker">INSCRIPCIÓN DE EJEMPLO CONFIRMADA</span>
-      <h2>Tu ticket</h2>
-      <div className="digital-ticket">
-        <div className="ticket-red"><Logo light /><span>ENTRADA DE EJEMPLO</span><h3>{event.title}</h3><div><b>{event.date.split(" ")[0]}</b><span>{event.date.split(" ")[1]} · 2026<br />{event.time}</span></div></div>
-        <div className="ticket-code">
-          {qrDataUrl ? <img src={qrDataUrl} width={180} height={180} alt={`QR del ticket de ${ticket.fullName}`} /> : <p role="status">{qrError ? "No se pudo generar el QR. Abre nuevamente el ticket." : "Generando QR…"}</p>}
-          <strong>{ticket.fullName}</strong><span>{ticket.id}</span><small>{event.place}</small>
-        </div>
-      </div>
-      <div className="ticket-actions">
-        {qrDataUrl && <a className="btn btn-primary" href={qrDataUrl} download={`${ticket.id}.png`}>Descargar QR<Icon name="download" /></a>}
-        <Button kind="secondary" onClick={() => { onClose(); document.querySelector("#tickets")?.scrollIntoView({ behavior: "smooth" }) }}>Tus tickets</Button>
-      </div>
-    </div>
-  </div>
 }
 
 function Landing({ onRole }: { onRole: (r: Role) => void }) {
   const [scannerOpen, setScannerOpen] = useState(false)
   const closeScanner = useCallback(() => setScannerOpen(false), [])
-  const [detail, setDetail] = useState<typeof events[number] | null>(null)
-  const [pendingEvent, setPendingEvent] = useState<typeof events[number] | null>(null)
-  const [tickets, setTickets] = useState<DemoTicket[]>([])
-  const [activeTicket, setActiveTicket] = useState<DemoTicket | null>(null)
+  const [detail, setDetail] = useState(false)
   const [auth, setAuth] = useState<"login" | "register" | null>(null)
-  const [user, setUser] = useState<AccountUser | null>(null)
-  const [sessionLoading, setSessionLoading] = useState(true)
-  const [notice, setNotice] = useState<string | null>(null)
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch("/api/auth/session", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const json = await response.json()
-        if (!response.ok || !json.ok) throw new Error(json.error || "No se pudo consultar la sesión")
-        setUser(json.data)
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) setNotice(error instanceof Error ? error.message : "No se pudo consultar la sesión")
-      })
-      .finally(() => { if (!controller.signal.aborted) setSessionLoading(false) })
-    return () => controller.abort()
-  }, [])
-  useEffect(() => {
-    if (!user) { setTickets([]); setActiveTicket(null); return }
-    try { setTickets(readDemoTickets(localStorage, user.id)) }
-    catch { setNotice("No se pudieron cargar tus tickets.") }
-  }, [user])
-  const enroll = (account: AccountUser, event: typeof events[number]) => {
-    try {
-      const result = enrollDemoEvent(localStorage, account, event.id)
-      setTickets(result.tickets)
-      setActiveTicket(result.ticket)
-      setNotice(null)
-    } catch { setNotice("No se pudo guardar el ticket. Intenta nuevamente.") }
-  }
-  const logout = async () => {
-    setSessionLoading(true)
-    try {
-      const response = await fetch("/api/auth/logout", { method: "POST" })
-      if (!response.ok) throw new Error("No se pudo cerrar la sesión. Intenta nuevamente.")
-      setUser(null)
-      setNotice("Sesión cerrada.")
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No se pudo cerrar la sesión")
-    } finally {
-      setSessionLoading(false)
-    }
-  }
   const join = () => {
-    if (!detail || sessionLoading) return
-    const event = detail
-    setDetail(null)
-    if (!user) {
-      setPendingEvent(event)
-      setAuth("login")
-      return
-    }
-    enroll(user, event)
+    window.location.assign("/registro")
   }
   return (
     <div className="landing">
-      <ClientNavbar onLogin={setAuth} onRole={onRole} user={user} loading={sessionLoading} onLogout={logout} />
-      {notice && <div className="account-notice" role="status">{notice}</div>}
+      <ClientNavbar onLogin={(mode) => mode === "register" ? window.location.assign("/registro") : setAuth(mode)} onRole={onRole} />
       <main>
         <section className="hero">
           <div className="hero-copy">
@@ -1141,30 +1037,13 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
               <EventCard
                 key={e.title}
                 event={e}
-                onDetail={() => setDetail(e)}
+                onDetail={() => setDetail(true)}
               />
             ))}
           </div>
           <Button kind="secondary" icon="arrow">
             Ver todos los eventos
           </Button>
-        </section>
-        <section className="user-tickets-section" id="tickets">
-          <div className="section-head"><div><span className="section-kicker">TUS EXPERIENCIAS</span><h2>Tus tickets</h2></div></div>
-          {sessionLoading ? <p role="status">Cargando…</p> : !user ? (
-            <Button onClick={() => setAuth("login")}>Iniciar sesión</Button>
-          ) : tickets.length === 0 ? (
-            <div className="tickets-empty"><p>Aún no tienes tickets.</p><a className="btn btn-dark" href="#eventos">Explorar eventos</a></div>
-          ) : (
-            <div className="user-ticket-grid">{tickets.map((ticket) => {
-              const event = events.find((event) => event.id === ticket.eventId)
-              return event ? <article className="user-ticket-card" key={ticket.id}>
-                <Badge>Ticket de ejemplo</Badge><h3>{event.title}</h3>
-                <p>{event.date} · {event.time}</p><p>{event.place}</p><strong>{ticket.fullName}</strong>
-                <Button icon="qr" onClick={() => setActiveTicket(ticket)}>Ver ticket y QR</Button>
-              </article> : null
-            })}</div>
-          )}
         </section>
         <section className="live-experience">
           <div>
@@ -1206,7 +1085,7 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
               <Logo light />
               <Icon name="bell" />
             </div>
-            <span>{user ? `HOLA, ${user.nombre.toUpperCase()}` : "TU EXPERIENCIA COCA-COLA"}</span>
+            <span>HOLA, VALERIA</span>
             <h3>
               ¿Lista para
               <br />
@@ -1261,7 +1140,7 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
           <strong>EXPLORA</strong>
           <a href="#eventos">Eventos</a>
           <a href="#social">Redes sociales</a>
-          <a href="#tickets">Tus tickets</a>
+          <a href="#inicio">Mis entradas</a>
         </div>
         <div>
           <strong>INFORMACIÓN</strong>
@@ -1275,23 +1154,14 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
       </footer>
       <RoleSwitcher role="cliente" onRole={onRole} />
       {scannerOpen && <QrScannerModal onClose={closeScanner} />}
-      {detail && <EventDetail event={detail} enrolled={tickets.some((ticket) => ticket.eventId === detail.id)} onClose={() => setDetail(null)} onJoin={join} />}
-      {activeTicket && <TicketScreen ticket={activeTicket} onClose={() => setActiveTicket(null)} />}
+      {detail && <EventDetail onClose={() => setDetail(false)} onJoin={join} />}
       {auth && (
         <AuthModal
-          key={auth}
           mode={auth}
-          onModeChange={setAuth}
-          onClose={() => { setAuth(null); setPendingEvent(null) }}
-          onDone={(account, created) => {
+          onClose={() => setAuth(null)}
+          onDone={() => {
             setAuth(null)
-            setUser(account)
-            if (pendingEvent) {
-              enroll(account, pendingEvent)
-              setPendingEvent(null)
-            } else {
-              setNotice(created ? "Cuenta creada correctamente." : `Bienvenido, ${account.nombre}.`)
-            }
+            window.location.assign("/registro")
           }}
         />
       )}
@@ -1299,76 +1169,31 @@ function Landing({ onRole }: { onRole: (r: Role) => void }) {
   )
 }
 
-const navs: Record<Exclude<Role, "cliente">, {
-  label: string
-  icon: IconName
-}[]> = {
+const navs: Record<Exclude<Role, "cliente">, { label: string; icon: IconName }[]> = {
   organizador: [
-    { label: "Vista general", icon: "home" },
-    { label: "Mis eventos", icon: "calendar" },
-    { label: "Participantes", icon: "users" },
-    { label: "Check-in QR", icon: "qr" },
-    { label: "Actividades", icon: "spark" },
-    { label: "Degustaciones", icon: "heart" },
-    { label: "Encuestas", icon: "chart" },
-    { label: "Predicciones IA", icon: "spark" },
-    { label: "Observaciones", icon: "eye" },
+    { label: "Mi operación", icon: "home" },
+    { label: "Eventos", icon: "calendar" },
+    { label: "Operación", icon: "qr" },
+    { label: "Resultados", icon: "chart" },
+    { label: "Planificar con IA", icon: "spark" },
   ],
   administrador: [
-    { label: "Vista general", icon: "home" },
+    { label: "Centro de decisiones", icon: "home" },
     { label: "Eventos", icon: "calendar" },
-    { label: "Usuarios y roles", icon: "users" },
-    { label: "Participantes", icon: "users" },
-    { label: "Productos", icon: "heart" },
-    { label: "Campañas", icon: "spark" },
-    { label: "Indicadores", icon: "chart" },
-    { label: "Predicciones IA", icon: "spark" },
-    { label: "Automatizaciones", icon: "settings" },
-    { label: "Reportes", icon: "download" },
-    { label: "Integraciones", icon: "grid" },
+    { label: "Operación", icon: "qr" },
+    { label: "Resultados", icon: "chart" },
+    { label: "Planificar con IA", icon: "spark" },
+    { label: "Recursos", icon: "settings" },
     { label: "Power BI", icon: "chart" },
   ],
   marketing: [
-    { label: "Resumen ejecutivo", icon: "home" },
-    { label: "Indicadores", icon: "chart" },
-    { label: "Embudo", icon: "filter" },
-    { label: "Productos", icon: "heart" },
-    { label: "Satisfacción y NPS", icon: "spark" },
-    { label: "Segmentación", icon: "users" },
-    { label: "Mapa de asistentes", icon: "map" },
-    { label: "Promociones", icon: "ticket" },
-    { label: "Comparar eventos", icon: "grid" },
-    { label: "Insights IA", icon: "spark" },
-    { label: "Reporte ejecutivo", icon: "download" },
+    { label: "Centro de decisiones", icon: "home" },
+    { label: "Eventos", icon: "calendar" },
+    { label: "Resultados", icon: "chart" },
+    { label: "Planificar con IA", icon: "spark" },
     { label: "Power BI", icon: "chart" },
   ],
 }
-
-const administratorAllowedPages = [
-  "Vista general",
-  "Eventos",
-  "Usuarios y roles",
-  "Participantes",
-  "Productos",
-  "Campañas",
-  "Indicadores",
-  "Automatizaciones",
-  "Reportes",
-  "Integraciones",
-  "Power BI",
-]
-
-const organizerAllowedPages = [
-  "Vista general",
-  "Mis eventos",
-  "Participantes",
-  "Check-in QR",
-  "Actividades",
-  "Degustaciones",
-  "Encuestas",
-  "Predicciones IA",
-  "Observaciones",
-]
 
 function RoleSwitcher({
   role,
@@ -1444,9 +1269,9 @@ function Sidebar({
         ))}
       </nav>
       <div className="sidebar-user">
-        <span>MR</span>
+        <span>EI</span>
         <div>
-          <strong>María Rodríguez</strong>
+          <strong>Espacio de demostración</strong>
           <small>{role}</small>
         </div>
         <Icon name="chevron" size={16} />
@@ -1473,68 +1298,6 @@ const pageDescriptions: Record<string, string> = {
   "Predicciones IA": "Predicción de comportamiento por gustos: asistencia, segmentos y pronóstico del evento.",
   "Power BI": "Dashboard ejecutivo y sincronización de datos.",
   "Insights IA": "Pregúntale a los datos y descubre oportunidades.",
-}
-
-function ScannerPage() {
-  const [result, setResult] = useState(false)
-  return (
-    <div className="scanner-layout">
-      <div className="scanner-camera">
-        <div className="camera-overlay">
-          <span>Centra el QR dentro del marco</span>
-          <div className="scan-box">
-            <i />
-            <i />
-            <i />
-            <i />
-            <b />
-          </div>
-          <small>La cámara detectará el código automáticamente</small>
-          <Button kind="secondary" onClick={() => setResult(!result)}>
-            Simular escaneo
-          </Button>
-        </div>
-      </div>
-      <div className="checkin-side">
-        <div className="live-count">
-          <span>INGRESOS EN VIVO</span>
-          <strong>280</strong>
-          <small>de 350 registrados · 80%</small>
-          <div>
-            <i style={{ width: "80%" }} />
-          </div>
-        </div>
-        {result && (
-          <div className="scan-result">
-            <div>
-              <Icon name="check" size={34} />
-            </div>
-            <span>ASISTENCIA REGISTRADA</span>
-            <h3>Valeria Rojas</h3>
-            <p>Entrada general · 17:42</p>
-            <Badge tone="green">QR VÁLIDO</Badge>
-          </div>
-        )}
-        <h3>Últimos ingresos</h3>
-        {["Diego Salvatierra", "Camila Vargas", "Nicolás Peña"].map((x, i) => (
-          <div className="recent-person" key={x}>
-            <span>
-              {x
-                .split(" ")
-                .map((y) => y[0])
-                .join("")}
-            </span>
-            <div>
-              <strong>{x}</strong>
-              <small>Entrada general</small>
-            </div>
-            <time>17:{39 - i * 2}</time>
-          </div>
-        ))}
-        <Button kind="ghost">Buscar ingreso manual</Button>
-      </div>
-    </div>
-  )
 }
 
 type CatalogOption = { value: string; label: string }
@@ -1564,23 +1327,22 @@ const formFieldsByPage: Record<string, FormFieldDef[]> = {
     { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
     { label: "Tipo de evento", name: "tipo_evento_id", kind: "select", required: true, options: [] },
     { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "planificado", options: ["planificado", "en_curso", "cerrado"] },
-    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local" },
-    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local" },
+    { label: "Inicio (hora Bolivia)", name: "fecha_inicio", type: "datetime-local", required: true },
+    { label: "Cierre (hora Bolivia)", name: "fecha_fin", type: "datetime-local", required: true },
     { label: "Ciudad", name: "ciudad", placeholder: "Santa Cruz" },
     { label: "Lugar", name: "lugar", placeholder: "Plaza 24 de Septiembre" },
-    { label: "Dirección", name: "direccion", placeholder: "Av. Camacho 123" },
-    { label: "Aforo", name: "aforo", type: "number", placeholder: "350" },
+    { label: "Asistentes previstos", name: "participantes_esperados", type: "number", placeholder: "350" },
     { label: "Presupuesto (Bs)", name: "presupuesto", type: "number", placeholder: "25000" },
     { label: "Objetivo", name: "objetivo", kind: "textarea", placeholder: "Objetivo principal del evento" },
     { label: "Campaña asociada", name: "campana_id", kind: "select", options: [] },
-    { label: "Organizador", name: "organizador_id", placeholder: "UUID del organizador" },
+    { label: "Responsable", name: "organizador_id", kind: "select", required: true, options: [] },
   ],
   Eventos: [
     { label: "Nombre del evento", name: "nombre", required: true, placeholder: "Festival Coca-Cola 2026" },
     { label: "Tipo de evento", name: "tipo_evento_id", kind: "select", required: true, options: [] },
     { label: "Estado", name: "estado", kind: "select", required: true, defaultValue: "planificado", options: ["planificado", "en_curso", "cerrado"] },
-    { label: "Fecha y hora de inicio", name: "fecha_inicio", type: "datetime-local" },
-    { label: "Fecha y hora de fin", name: "fecha_fin", type: "datetime-local" },
+    { label: "Inicio (hora Bolivia)", name: "fecha_inicio", type: "datetime-local", required: true },
+    { label: "Cierre (hora Bolivia)", name: "fecha_fin", type: "datetime-local", required: true },
     { label: "Ciudad", name: "ciudad", placeholder: "La Paz" },
     { label: "Lugar", name: "lugar", placeholder: "Centro Cultural" },
     { label: "Campaña asociada", name: "campana_id", kind: "select", options: [] },
@@ -1593,10 +1355,6 @@ const formFieldsByPage: Record<string, FormFieldDef[]> = {
     { label: "Rol", name: "rol", kind: "select", required: true, defaultValue: "organizador", options: ["administrador", "organizador", "marketing", "participante"] },
     { label: "Ciudad", name: "ciudad", placeholder: "Santa Cruz" },
     { label: "Rango de edad", name: "rango_edad", kind: "select", options: ["18-24", "25-34", "35-44", "45-54", "55+"] },
-    { label: "Género", name: "genero", placeholder: "Femenino" },
-    { label: "Ocupación", name: "ocupacion", placeholder: "Coordinadora" },
-    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
-    { label: "Acepta marketing", name: "acepta_marketing", kind: "select", defaultValue: "true", options: ["true", "false"] },
   ],
   Participantes: [
     { label: "Nombre", name: "nombre", required: true, placeholder: "Ana" },
@@ -1606,24 +1364,24 @@ const formFieldsByPage: Record<string, FormFieldDef[]> = {
     { label: "Rol", name: "rol", kind: "select", required: true, defaultValue: "participante", options: ["participante"] },
     { label: "Ciudad", name: "ciudad", placeholder: "Cochabamba" },
     { label: "Rango de edad", name: "rango_edad", kind: "select", options: ["18-24", "25-34", "35-44", "45-54", "55+"] },
-    { label: "Género", name: "genero", placeholder: "Masculino" },
-    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
   ],
   Productos: [
     { label: "Nombre", name: "nombre", required: true, placeholder: "Coca-Cola Original" },
     { label: "Tipo de producto", name: "tipo_producto_id", kind: "select", required: true, options: [] },
-    { label: "Categoría", name: "categoria", placeholder: "Gaseosas" },
+    { label: "Categoría", name: "categoria", placeholder: "Gaseosa" },
     { label: "Sabor", name: "sabor", placeholder: "Original" },
-    { label: "Presentación", name: "presentacion", placeholder: "Lata 355ml" },
-    { label: "Activo", name: "activo", kind: "select", defaultValue: "true", options: ["true", "false"] },
+    { label: "Presentación", name: "presentacion", placeholder: "500 ml" },
   ],
   Campañas: [
     { label: "Nombre de campaña", name: "nombre", required: true, placeholder: "Ruta de sabores 2026" },
-    { label: "Objetivo de conversión", name: "objetivo_conversion", kind: "textarea", placeholder: "Objetivo de la campaña" },
-    { label: "Fecha de inicio", name: "fecha_inicio", type: "date" },
-    { label: "Fecha de fin", name: "fecha_fin", type: "date" },
+    { label: "Descripción", name: "descripcion", kind: "textarea", placeholder: "Objetivo de la campaña" },
+    { label: "Fecha de inicio", name: "fecha_inicio", type: "date", required: true },
+    { label: "Fecha de fin", name: "fecha_fin", type: "date", required: true },
+    { label: "Presupuesto", name: "presupuesto", type: "number", placeholder: "25000" },
   ],
 }
+
+formFieldsByPage.Eventos = formFieldsByPage["Mis eventos"]
 
 function DataPage({
   page,
@@ -1638,17 +1396,11 @@ function DataPage({
     [loading, setLoading] = useState(false),
     [searchTerm, setSearchTerm] = useState(""),
     [filterOpen, setFilterOpen] = useState(false),
-    [statusFilter, setStatusFilter] = useState<"all" | "planificado" | "en_curso" | "cerrado">("all"),
-    [selectedEventId, setSelectedEventId] = useState("all"),
-    [eventOptions, setEventOptions] = useState<Array<{ id: string; label: string }>>([]),
-    [currentPage, setCurrentPage] = useState(1)
+    [statusFilter, setStatusFilter] = useState<"all" | "planificado" | "en_curso" | "cerrado">("all")
+  const [revision, setRevision] = useState(0)
+  const [loadError, setLoadError] = useState("")
   const fields = formFieldsByPage[page]
   const entity = getAdminEntityForPage(page)
-  const showEventFilter = ["Usuarios y roles", "Participantes", "Productos", "Campañas"].includes(page)
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, selectedEventId, page, entity])
 
   useEffect(() => {
     if (!entity) {
@@ -1658,13 +1410,9 @@ function DataPage({
 
     let active = true
     setLoading(true)
+    setLoadError("")
 
-    const url = new URL(`/api/admin/${entity}`, window.location.origin)
-    if (showEventFilter && selectedEventId !== "all") {
-      url.searchParams.set("event_id", selectedEventId)
-    }
-
-    fetch(url.toString(), { cache: "no-store" })
+    fetch(`/api/admin/${entity}`, { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error("No se pudieron cargar los registros.")
@@ -1673,7 +1421,7 @@ function DataPage({
         if (active) setRecords(Array.isArray(body?.data) ? body.data : [])
       })
       .catch(() => {
-        if (active) setRecords([])
+        if (active) { setRecords([]); setLoadError("No se pudieron cargar los registros. Intenta nuevamente.") }
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -1682,40 +1430,8 @@ function DataPage({
     return () => {
       active = false
     }
-  }, [entity, selectedEventId, showEventFilter])
+  }, [entity, revision])
 
-  useEffect(() => {
-    if (!showEventFilter) {
-      setEventOptions([])
-      return
-    }
-
-    let active = true
-    fetch("/api/admin/eventos", { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) return
-        const body = await response.json().catch(() => ({}))
-        if (!active) return
-        const items = Array.isArray(body?.data) ? (body.data as Array<Record<string, unknown>>) : []
-        const nextOptions = items
-          .map((item: Record<string, unknown>) => ({
-            id: String(item.id ?? ""),
-            label: String(item.nombre ?? item.titulo ?? "Evento sin nombre"),
-          }))
-          .filter((item: { id: string; label: string }) => item.id)
-        setEventOptions(nextOptions)
-      })
-      .catch(() => {
-        if (active) setEventOptions([])
-      })
-
-    return () => {
-      active = false
-    }
-  }, [showEventFilter])
-
-  if (page === "Check-in QR") return <ScannerPage />
-  if (page === "Predicciones IA") return <MlPredictions role={role} />
   if (form && fields)
     return (
       <FormPage
@@ -1724,42 +1440,26 @@ function DataPage({
         onBack={() => setForm(false)}
         onSave={() => {
           setToast(true)
+          setRevision(value => value + 1)
           setForm(false)
           window.setTimeout(() => setToast(false), 2500)
         }}
       />
     )
 
-  const isEventStatusPage = page === "Eventos" || page === "Mis eventos"
-  const detailColumnLabel = page === "Productos" ? "CATEGORÍA" : page === "Campañas" ? "OBJETIVO" : "CIUDAD"
-  const showDateColumn = page !== "Productos"
-  const tableColumnSpan = showDateColumn ? 5 : 4
-
   const visibleRecords = records.filter((row) => {
     const normalizedRow = row ?? {}
-    const nestedRoleName =
-      typeof normalizedRow.role === "object" && normalizedRow.role && "nombre" in normalizedRow.role
-        ? String((normalizedRow.role as Record<string, unknown>).nombre ?? "")
-        : ""
-
     const haystack = [
       normalizedRow.nombre,
-      normalizedRow.apellido,
       normalizedRow.email,
       normalizedRow.ciudad,
       normalizedRow.lugar,
       normalizedRow.sku,
-      normalizedRow.categoria,
-      normalizedRow.sabor,
-      normalizedRow.presentacion,
-      normalizedRow.objetivo_conversion,
       normalizedRow.descripcion,
       normalizedRow.status,
       normalizedRow.estado,
       normalizedRow.activo,
       normalizedRow.activa,
-      normalizedRow.rol,
-      nestedRoleName,
     ]
       .filter(Boolean)
       .join(" ")
@@ -1767,8 +1467,6 @@ function DataPage({
 
     const matchesSearch =
       !searchTerm.trim() || haystack.includes(searchTerm.trim().toLowerCase()) || haystack.includes(searchTerm.trim().toLowerCase().replace(/\s+/g, ""))
-
-    if (!isEventStatusPage) return matchesSearch
 
     const rawStatus = String(normalizedRow.estado ?? normalizedRow.status ?? normalizedRow.activo ?? normalizedRow.activa ?? "planificado").toLowerCase()
     const normalizedStatus = rawStatus === "borrador" ? "planificado" : rawStatus === "activo" ? "en_curso" : rawStatus === "finalizado" || rawStatus === "cancelado" ? "cerrado" : rawStatus
@@ -1778,8 +1476,6 @@ function DataPage({
   })
 
   const rows = getDisplayRows(page, visibleRecords)
-  const pagination = paginateRows(rows, currentPage, 10)
-  const pageNumbers = Array.from({ length: pagination.totalPages }, (_, index) => index + 1)
 
   return (
     <>
@@ -1800,22 +1496,8 @@ function DataPage({
               : `Crear ${page.toLowerCase().replace(/s$/, "")}`}
         </Button>
       </div>
-      <p className="stats-notice">Los formularios de creación están alineados con la estructura real de la base de datos y se guardan en Supabase.</p>
-      {page === "Actividades" && (
-        <div className="metric-strip">
-          {[
-            ["6", "actividades activas"],
-            ["126", "participaciones"],
-            ["98", "personas únicas"],
-            ["4.8", "satisfacción"],
-          ].map((x) => (
-            <div key={x[1]}>
-              <strong>{x[0]}</strong>
-              <span>{x[1]}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <p className="stats-notice">Administra los recursos que utiliza el equipo en sus eventos.</p>
+      {loadError && <p className="stats-notice stats-error" role="alert">{loadError}</p>}
       <div className="panel table-panel">
         <div className="table-tools" style={{ position: "relative" }}>
           <div className="search-box">
@@ -1826,61 +1508,47 @@ function DataPage({
               placeholder={`Buscar en ${page.toLowerCase()}...`}
             />
           </div>
-          {showEventFilter && (
-            <div className="search-box" style={{ minWidth: 220 }}>
-              <select
-                value={selectedEventId}
-                onChange={(event) => setSelectedEventId(event.target.value)}
-                style={{ width: "100%", border: "none", background: "transparent", color: "#374151", fontSize: 14, outline: "none" }}
-              >
-                <option value="all">Todos los eventos</option>
-                {eventOptions.map((eventItem) => (
-                  <option key={eventItem.id} value={eventItem.id}>
-                    {eventItem.label}
-                  </option>
+          <div style={{ position: "relative" }}>
+            <Button kind="secondary" icon="filter" onClick={() => setFilterOpen((value) => !value)}>
+              Filtros
+            </Button>
+            {filterOpen && (
+              <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", gap: 6, zIndex: 10, minWidth: 160, boxShadow: "0 10px 25px rgba(0,0,0,0.08)" }}>
+                {[
+                  ["all", "Todos"],
+                  ["planificado", "Planificados"],
+                  ["en_curso", "En curso"],
+                  ["cerrado", "Cerrados"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(value as typeof statusFilter)
+                      setFilterOpen(false)
+                    }}
+                    style={{
+                      border: "none",
+                      background: statusFilter === value ? "#f1f5f9" : "transparent",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      textAlign: "left",
+                      fontWeight: statusFilter === value ? 700 : 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
                 ))}
-              </select>
-            </div>
-          )}
-          {isEventStatusPage && (
-            <div style={{ position: "relative" }}>
-              <Button kind="secondary" icon="filter" onClick={() => setFilterOpen((value) => !value)}>
-                Filtros
-              </Button>
-              {filterOpen && (
-                <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", gap: 6, zIndex: 10, minWidth: 160, boxShadow: "0 10px 25px rgba(0,0,0,0.08)" }}>
-                  {[
-                    ["all", "Todos"],
-                    ["planificado", "Planificados"],
-                    ["en_curso", "En curso"],
-                    ["cerrado", "Cerrados"],
-                  ].map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => {
-                        setStatusFilter(value as typeof statusFilter)
-                        setFilterOpen(false)
-                      }}
-                      style={{
-                        border: "none",
-                        background: statusFilter === value ? "#f1f5f9" : "transparent",
-                        padding: "8px 10px",
-                        borderRadius: 8,
-                        textAlign: "left",
-                        fontWeight: statusFilter === value ? 700 : 500,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          <Button kind="ghost" icon="download">
-            Exportar
+              </div>
+            )}
+          </div>
+          <Button kind="ghost" icon="download" onClick={() => {
+            const cells = [["Nombre", "Ciudad", "Estado", "Dato principal", "Fecha"], ...rows.map(row => [row.name, row.city, row.status, String(row.metric), row.date])];
+            const csv = cells.map(row => row.map(value => `"${String(value).replace(/^[=+@-]/, "'$&").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+            const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = `${page.toLowerCase()}.csv`; link.click(); URL.revokeObjectURL(url);
+          }}>
+            Exportar CSV
           </Button>
         </div>
         <div className="data-table">
@@ -1888,28 +1556,27 @@ function DataPage({
             <thead>
               <tr>
                 <th>NOMBRE</th>
-                <th>{detailColumnLabel}</th>
-                {!showEventFilter && <th>{isEventStatusPage ? "ESTADO" : "REGISTROS"}</th>}
-                <th>{showEventFilter ? "DETALLE" : "REGISTROS"}</th>
-                {showDateColumn && <th>FECHA</th>}
-                <th>ACCIONES</th>
+                <th>{page === "Productos" ? "SABOR" : "CIUDAD"}</th>
+                <th>ESTADO</th>
+                <th>{page === "Productos" ? "CATEGORÍA" : page === "Usuarios y roles" ? "ROL" : page === "Campañas" ? "PRESUPUESTO" : "ASISTENTES PREVISTOS"}</th>
+                <th>{page === "Productos" ? "PRESENTACIÓN" : "FECHA"}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={tableColumnSpan} style={{ textAlign: "center", padding: "2rem" }}>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "2rem" }}>
                     Cargando datos...
                   </td>
                 </tr>
-              ) : pagination.items.length === 0 ? (
+              ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={tableColumnSpan} style={{ textAlign: "center", padding: "2rem" }}>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "2rem" }}>
                     No hay registros para mostrar.
                   </td>
                 </tr>
               ) : (
-                pagination.items.map((row, index) => {
+                rows.map((row, index) => {
                   const itemKey =
                     row?.raw && typeof row.raw === "object" && "id" in row.raw && row.raw.id != null
                       ? `admin-row-${String(row.raw.id)}`
@@ -1920,34 +1587,24 @@ function DataPage({
                       <td>
                         <strong>{row.name}</strong>
                       </td>
-                      <td>{row.city}</td>
-                      {!showEventFilter && (
-                        <td>
-                          <Badge
-                            tone={
-                              row.status === "activo"
-                                ? "green"
-                                : row.status === "finalizado"
-                                  ? "neutral"
-                                  : row.status === "inactivo"
-                                    ? "yellow"
-                                    : "yellow"
-                            }
-                          >
-                            {row.status}
-                          </Badge>
-                        </td>
-                      )}
-                      <td>{String(row.metric)}</td>
-                      {showDateColumn && <td>{row.date}</td>}
-                      <td>
-                        <button>
-                          <Icon name="eye" />
-                        </button>
-                        <button>
-                          <Icon name="menu" />
-                        </button>
-                      </td>
+                    <td>{page === "Productos" ? String(row.raw.sabor ?? "—") : row.city}</td>
+                    <td>
+                      <Badge
+                        tone={
+                          row.status === "activo"
+                            ? "green"
+                            : row.status === "finalizado"
+                              ? "neutral"
+                              : row.status === "inactivo"
+                                ? "yellow"
+                                : "yellow"
+                        }
+                      >
+                        {row.status}
+                      </Badge>
+                    </td>
+                    <td>{String(row.metric)}</td>
+                      <td>{page === "Productos" ? String(row.raw.presentacion ?? "—") : row.date}</td>
                     </tr>
                   )
                 })
@@ -1957,24 +1614,7 @@ function DataPage({
         </div>
         <div className="pagination">
           <span>{rows.length ? `Mostrando ${rows.length} resultado${rows.length === 1 ? "" : "s"}` : "Sin resultados"}</span>
-          <div>
-            <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}>
-              Anterior
-            </button>
-            {pageNumbers.map((pageNumber) => (
-              <button
-                key={pageNumber}
-                type="button"
-                className={currentPage === pageNumber ? "active" : ""}
-                onClick={() => setCurrentPage(pageNumber)}
-              >
-                {pageNumber}
-              </button>
-            ))}
-            <button type="button" disabled={currentPage >= pagination.totalPages} onClick={() => setCurrentPage((value) => Math.min(pagination.totalPages, value + 1))}>
-              Siguiente
-            </button>
-          </div>
+
         </div>
       </div>
       {toast && (
@@ -2055,12 +1695,13 @@ function FormPage({
           payload[stringKey] = value === "true"
           return
         }
-        if (stringKey === "aforo" || stringKey === "presupuesto" || stringKey === "precio" || stringKey === "tipo_evento_id" || stringKey === "campana_id" || stringKey === "tipo_producto_id") {
+        if (stringKey === "aforo" || stringKey === "participantes_esperados" || stringKey === "organizador_id" || stringKey === "presupuesto" || stringKey === "precio" || stringKey === "tipo_evento_id" || stringKey === "campana_id" || stringKey === "tipo_producto_id") {
           const parsed = Number(value)
           payload[stringKey] = Number.isNaN(parsed) ? String(value) : parsed
           return
         }
-        payload[stringKey] = String(value)
+        const field = fields.find(item => item.name === stringKey)
+        payload[stringKey] = field?.type === "datetime-local" ? `${value}${String(value).length === 16 ? ":00" : ""}-04:00` : String(value)
       })
 
       const entity = pageEntityMap[page]
@@ -2097,9 +1738,9 @@ function FormPage({
       </button>
       <div className="dashboard-title compact">
         <div>
-          <span>FORMULARIO · BASE DE DATOS</span>
+          <span>PREPARACIÓN DEL EVENTO</span>
           <h1>{page === "Mis eventos" ? "Crear nuevo evento" : `Crear · ${page}`}</h1>
-          <p>Los campos corresponden a las columnas reales de Supabase.</p>
+          <p>Completa la información necesaria para el equipo responsable.</p>
         </div>
       </div>
 
@@ -2107,7 +1748,7 @@ function FormPage({
         <div className="form-title">
           <span>INFORMACIÓN</span>
           <h3>{`Datos de ${page.toLowerCase()}`}</h3>
-          <p>Completa los campos necesarios para guardar el registro en la base de datos.</p>
+          <p>Revisa los datos antes de guardar.</p>
         </div>
 
         <div className="admin-field-grid">
@@ -2142,7 +1783,7 @@ function FormPage({
             Cancelar
           </Button>
           <Button type="submit" disabled={loading}>
-            {loading ? "Guardando..." : "Guardar y publicar"}
+            {loading ? "Guardando..." : "Guardar"}
           </Button>
         </div>
       </form>
@@ -2158,25 +1799,15 @@ function AppShell({
   onRole: (r: Role) => void
 }) {
   const [page, setPage] = useState(navs[role][0].label)
-  const isHome = page === navs[role][0].label
-  const isStats = isHome || ["Indicadores", "Embudo", "Satisfacción y NPS", "Segmentación", "Mapa de asistentes", "Comparar eventos", "Promociones", "Insights IA", "Reporte ejecutivo", "Reportes", "Power BI"].includes(page) || (role === "marketing" && page === "Productos")
-
-  useEffect(() => {
-    if (role === "administrador" && !administratorAllowedPages.includes(page)) {
-      setPage("Vista general")
-      return
-    }
-
-    if (role === "organizador" && !organizerAllowedPages.includes(page)) {
-      setPage("Vista general")
-    }
-  }, [role, page])
+  const [menuOpen, setMenuOpen] = useState(false)
+  const navigate = (next: string) => { setPage(next); setMenuOpen(false) }
 
   return (
-    <div className="app-shell">
-      <Sidebar role={role} page={page} setPage={setPage} />
+    <div className={`app-shell ${page === "Power BI" ? "" : "intelligence-shell"} ${menuOpen ? "menu-open" : ""}`}>
+      <Sidebar role={role} page={page} setPage={navigate} />
+      {menuOpen && <button className="intel-menu-scrim" aria-label="Cerrar navegación" onClick={() => setMenuOpen(false)} />}
       <header className="topbar">
-        <button className="mobile-menu">
+        <button className="mobile-menu" aria-label="Abrir navegación" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
           <Icon name="menu" />
         </button>
         <div className="top-event">
@@ -2185,35 +1816,31 @@ function AppShell({
               ? "Panel administrativo"
               : "Evento activo"}
           </span>
-          <strong>Estadísticas de eventos</strong>
+          <strong>{page}</strong>
         </div>
         <div className="top-actions">
-          <button>
-            <Icon name="search" />
-          </button>
-          <button className="notification">
-            <Icon name="bell" />
-            <i />
-          </button>
-          <span>MR</span>
+          <button className="intel-top-link" onClick={() => onRole("cliente")}>Portal de participantes <Icon name="arrow" size={16} /></button>
+          <span aria-label="Vista de demostración">EI</span>
         </div>
       </header>
       <main className="dashboard-main">
-        {isStats ? (
-          <StatisticsDashboard page={page} role={role} onPage={setPage} />
+        {page === "Power BI" ? (
+          <StatisticsDashboard page="Power BI" role={role} onPage={navigate} />
         ) : (
-          <DataPage page={page} role={role} />
+          <IntelligenceWorkspace role={role} page={page} onPage={navigate} renderManagement={(resource) => <DataPage key={resource} page={resource} role={role} />} />
         )}
       </main>
-      <nav className="bottom-nav">
+      <nav className="bottom-nav" aria-label="Navegación principal">
         {navs[role].slice(0, 5).map((x) => (
           <button
             className={page === x.label ? "active" : ""}
-            onClick={() => setPage(x.label)}
+            aria-current={page === x.label ? "page" : undefined}
+            aria-label={x.label}
+            onClick={() => navigate(x.label)}
             key={x.label}
           >
             <Icon name={x.icon} />
-            <span>{x.label.split(" ")[0]}</span>
+            <span>{x.label === "Centro de decisiones" || x.label === "Mi operación" ? "Resumen" : x.label === "Planificar con IA" ? "Planificar" : x.label}</span>
           </button>
         ))}
       </nav>
@@ -2222,8 +1849,8 @@ function AppShell({
   )
 }
 
-export default function EventApp() {
-  const [role, setRole] = useState<Role>("cliente")
+export default function EventApp({ initialRole = "cliente" }: { initialRole?: Role }) {
+  const [role, setRole] = useState<Role>(initialRole)
   return role === "cliente" ? (
     <Landing onRole={setRole} />
   ) : (

@@ -16,7 +16,7 @@ function cameraError(error: unknown): string {
   return "No pudimos iniciar la cámara. Revisa sus permisos y vuelve a intentar."
 }
 
-export default function QrScannerModal({ onClose }: { onClose: () => void }) {
+export default function QrScannerModal({ onClose, onDecode }: { onClose: () => void; onDecode?: (text: string) => void }) {
   const id = useId().replace(/:/g, "")
   const readerId = `qr-reader-${id}`
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -93,6 +93,7 @@ export default function QrScannerModal({ onClose }: { onClose: () => void }) {
             if (cancelled || decoded) return
             decoded = true
             setResult(text)
+            onDecode?.(text)
           },
           () => {},
         )
@@ -121,7 +122,7 @@ export default function QrScannerModal({ onClose }: { onClose: () => void }) {
         if (!scanner.isScanning) scanner.clear()
       }).catch(() => {})
     }
-  }, [attempt, readerId, result])
+  }, [attempt, readerId, result, onDecode])
 
   let destination: string | null = null
   if (result) {

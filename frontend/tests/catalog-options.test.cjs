@@ -23,3 +23,8 @@ test("el formulario usa opciones reales de tipos de evento y campañas", () => {
     { value: "7", label: "Ruta de sabores" },
   ]);
 });
+
+test("roles muestran nombres y responsables usan identificadores del catálogo", () => {
+  assert.deepEqual(getCatalogOptionsForField("rol", { role: [{ id: 2, nombre: "organizador" }] }), [{ value: "organizador", label: "organizador" }]);
+  assert.deepEqual(getCatalogOptionsForField("organizador_id", { organizador: [{ id: 14, nombre: "María Rodríguez" }] }), [{ value: "14", label: "María Rodríguez" }]);
+});

@@ -4,6 +4,7 @@ const fieldCatalogMap = {
   tipo_producto_id: "tipo_producto",
   rol: "role",
   role_id: "role",
+  organizador_id: "organizador",
 };
 
 function getCatalogOptionsForField(fieldName, catalog = {}) {
@@ -12,8 +13,8 @@ function getCatalogOptionsForField(fieldName, catalog = {}) {
 
   return rows
     .map((item) => {
-      const value = item?.id ?? item?.value;
       const label = item?.nombre ?? item?.name ?? item?.label ?? item?.value ?? "Sin nombre";
+      const value = fieldName === "rol" ? label : item?.id ?? item?.value;
 
       if (value == null || value === "") return null;
       return { value: String(value), label: String(label) };

@@ -30,11 +30,11 @@ const parseNumber = (value: unknown) => {
 };
 
 const toIsoDate = (value: unknown) => {
-  if (!value) return null;
+  if (!value) return new Date().toISOString();
   const raw = String(value).trim();
-  if (!raw) return null;
+  if (!raw) return new Date().toISOString();
   const asDate = new Date(raw);
-  return Number.isNaN(asDate.getTime()) ? null : asDate.toISOString();
+  return Number.isNaN(asDate.getTime()) ? new Date().toISOString() : asDate.toISOString();
 };
 
 async function getFirstValue<T>(table: string, field: string): Promise<T | null> {
@@ -48,11 +48,11 @@ async function getRoleIdByName(name: string): Promise<number | null> {
   const { data, error } = await supabaseAdmin
     .from("role")
     .select("id")
-    .ilike("nombre", normalized)
+    .filter(/^\d+$/.test(normalized) ? "id" : "nombre", /^\d+$/.test(normalized) ? "eq" : "ilike", normalized)
     .limit(1)
     .maybeSingle();
 
-  if (error || !data) return 1;
+  if (error || !data) throw new Error("Selecciona un rol válido.");
   return Number(data.id ?? 1);
 }
 
@@ -65,50 +65,54 @@ async function buildInsertPayload(entity: string, payload: Record<string, unknow
     const allowedEstados = new Set(["planificado", "en_curso", "cerrado"]);
     const rawEstado = typeof normalized.estado === "string" ? normalized.estado.trim().toLowerCase() : "planificado";
     const safeEstado = normalizeEventStatus(rawEstado);
-    const fechaInicio = toIsoDate(normalized.fecha_inicio ?? normalized.fecha_y_hora_de_inicio);
-    const fechaFin = toIsoDate(normalized.fecha_fin ?? normalized.fecha_y_hora_de_fin);
-    const payloadBase = {
-      nombre: (normalized.nombre as string) || "Nuevo evento",
-      descripcion: (normalized.descripcion as string) || "Evento creado desde el panel administrativo",
-      tipo_evento_id: parseNumber(normalized.tipo_evento_id ?? normalized.tipo_evento) ?? (await getFirstValue<number>("tipo_evento", "id")) ?? 1,
-      campana_id: parseNumber(normalized.campana_id ?? normalized.campana) ?? (await getFirstValue<number>("campana", "id")) ?? 1,
-      organizador_id: (normalized.organizador_id as string) || (await getFirstValue<string>("usuario", "id")) || "00000000-0000-0000-0000-000000000000",
-      ciudad: (normalized.ciudad as string) || null,
-      lugar: (normalized.lugar as string) || (normalized.lugar_y_direccion as string) || null,
-      direccion: (normalized.direccion as string) || null,
-      aforo: parseNumber(normalized.aforo ?? normalized.participantes_esperados) ?? null,
-      presupuesto: parseNumber(normalized.presupuesto) ?? null,
-      objetivo: (normalized.objetivo as string) || (normalized.descripcion as string) || "Objetivo general",
-      activo: true,
-    };
 
     if (!allowedEstados.has(safeEstado)) {
       return {
-        ...payloadBase,
-        fecha_inicio: fechaInicio,
-        fecha_fin: fechaFin,
+        nombre: (normalized.nombre as string) || "Nuevo evento",
+        descripcion: (normalized.descripcion as string) || "Evento creado desde el panel administrativo",
+        tipo_evento_id: parseNumber(normalized.tipo_evento_id ?? normalized.tipo_evento) ?? (await getFirstValue<number>("tipo_evento", "id")) ?? 1,
+        campana_id: parseNumber(normalized.campana_id ?? normalized.campana),
+        organizador_id: (normalized.organizador_id as string) || (await getFirstValue<string>("usuario", "id")) || "00000000-0000-0000-0000-000000000000",
+        fecha_inicio: toIsoDate(normalized.fecha_inicio ?? normalized.fecha_y_hora_de_inicio),
+        fecha_fin: toIsoDate(normalized.fecha_fin ?? normalized.fecha_y_hora_de_fin),
+        ciudad: (normalized.ciudad as string) || "Santa Cruz",
+        lugar: (normalized.lugar as string) || (normalized.lugar_y_direccion as string) || "Sin lugar definido",
+        direccion: (normalized.direccion as string) || null,
+        participantes_esperados: parseNumber(normalized.participantes_esperados ?? normalized.aforo) ?? 100,
+        presupuesto: parseNumber(normalized.presupuesto) ?? 0,
+        objetivo: (normalized.objetivo as string) || (normalized.descripcion as string) || "Objetivo general",
+        activo: true,
         estado: "planificado",
       };
     }
 
     return {
-      ...payloadBase,
+      nombre: (normalized.nombre as string) || "Nuevo evento",
+      descripcion: (normalized.descripcion as string) || "Evento creado desde el panel administrativo",
+      tipo_evento_id: parseNumber(normalized.tipo_evento_id ?? normalized.tipo_evento) ?? (await getFirstValue<number>("tipo_evento", "id")) ?? 1,
+      campana_id: parseNumber(normalized.campana_id ?? normalized.campana),
+      organizador_id: (normalized.organizador_id as string) || (await getFirstValue<string>("usuario", "id")) || "00000000-0000-0000-0000-000000000000",
       estado: safeEstado,
-      fecha_inicio: fechaInicio,
-      fecha_fin: fechaFin,
+      fecha_inicio: toIsoDate(normalized.fecha_inicio ?? normalized.fecha_y_hora_de_inicio),
+      fecha_fin: toIsoDate(normalized.fecha_fin ?? normalized.fecha_y_hora_de_fin),
+      ciudad: (normalized.ciudad as string) || "Santa Cruz",
+      lugar: (normalized.lugar as string) || (normalized.lugar_y_direccion as string) || "Sin lugar definido",
+      direccion: (normalized.direccion as string) || null,
+      participantes_esperados: parseNumber(normalized.participantes_esperados ?? normalized.aforo) ?? 100,
+      presupuesto: parseNumber(normalized.presupuesto) ?? 0,
+      objetivo: (normalized.objetivo as string) || (normalized.descripcion as string) || "Objetivo general",
+      activo: true,
     };
   }
 
   if (entity === "campanas") {
-    const fechaInicio = toIsoDate(normalized.fecha_inicio);
-    const fechaFin = toIsoDate(normalized.fecha_fin);
     return {
       nombre: (normalized.nombre as string) || "Nueva campaña",
-      ...(fechaInicio ? { fecha_inicio: fechaInicio } : {}),
-      ...(fechaFin ? { fecha_fin: fechaFin } : {}),
-      ...(normalized.objetivo_conversion || normalized.descripcion
-        ? { objetivo_conversion: (normalized.objetivo_conversion as string) || (normalized.descripcion as string) }
-        : {}),
+      descripcion: (normalized.descripcion as string) || "Campaña creada desde el panel administrativo",
+      fecha_inicio: toIsoDate(normalized.fecha_inicio),
+      fecha_fin: toIsoDate(normalized.fecha_fin),
+      presupuesto: parseNumber(normalized.presupuesto) ?? 0,
+      activa: true,
     };
   }
 
@@ -116,10 +120,10 @@ async function buildInsertPayload(entity: string, payload: Record<string, unknow
     return {
       nombre: (normalized.nombre as string) || "Nuevo producto",
       tipo_producto_id: parseNumber(normalized.tipo_producto_id ?? normalized.categoria) ?? (await getFirstValue<number>("tipo_producto", "id")) ?? 1,
-      categoria: (normalized.categoria as string) || (normalized.tipo_producto as string) || "General",
-      sabor: (normalized.sabor as string) || (normalized.sabor_producto as string) || null,
-      presentacion: (normalized.presentacion as string) || (normalized.presentacion_producto as string) || null,
-      activo: Boolean(normalized.activo ?? true),
+      categoria: (normalized.categoria as string) || null,
+      sabor: (normalized.sabor as string) || null,
+      presentacion: (normalized.presentacion as string) || null,
+      activo: true,
     };
   }
 
@@ -136,7 +140,7 @@ async function buildInsertPayload(entity: string, payload: Record<string, unknow
       email: (normalized.email as string) || (normalized.correo as string) || `usuario${Date.now()}@local.test`,
       celular: (normalized.celular as string) || "+59100000000",
       ciudad: (normalized.ciudad as string) || "Santa Cruz",
-      acepta_marketing: true,
+      rango_edad: ({ "18-24": "r18_24", "25-34": "r25_34", "35-44": "r35_44", "45-54": "r45_54", "55+": "mayor_55" } as Record<string, string>)[String(normalized.rango_edad ?? "")] ?? null,
       activo: true,
     };
   }
@@ -150,30 +154,24 @@ export async function GET(
 ) {
   const { entity } = await context.params;
   const table = entityMap[entity];
-  const { searchParams } = new URL(_request.url);
-  const selectedEventId = searchParams.get("event_id");
 
   if (!table) {
     return NextResponse.json({ ok: false, error: "Entidad no soportada" }, { status: 404 });
   }
 
   const { resolveUserRoleIdsForEntity } = await import("@/lib/admin-data");
-  const roleIds = [] as number[];
-  let query = supabaseAdmin.from(table).select("*");
+  const { data: roleRows, error: rolesError } = await supabaseAdmin
+    .from("role")
+    .select("id,nombre")
+    .in("nombre", ["administrador", "organizador", "marketing", "participante"]);
 
-  if (entity === "usuarios" || entity === "participantes") {
-    const { data: roleRows, error: rolesError } = await supabaseAdmin
-      .from("role")
-      .select("id,nombre")
-      .in("nombre", ["administrador", "organizador", "marketing", "participante"]);
-
-    if (rolesError) {
-      return NextResponse.json({ ok: false, error: rolesError.message }, { status: 500 });
-    }
-
-    roleIds.push(...resolveUserRoleIdsForEntity(entity, roleRows ?? []));
-    query = supabaseAdmin.from(table).select("*, role:role_id(id,nombre)");
+  if (rolesError) {
+    return NextResponse.json({ ok: false, error: rolesError.message }, { status: 500 });
   }
+
+  const roleIds = resolveUserRoleIdsForEntity(entity, roleRows ?? []);
+  const columns = entity === "usuarios" || entity === "participantes" ? "id,nombre,apellido,email,celular,ciudad,rango_edad,role_id,activo,created_at" : "*";
+  let query = supabaseAdmin.from(table).select<string, Record<string, unknown>>(columns);
 
   if (entity === "participantes") {
     query = roleIds.length ? query.in("role_id", roleIds) : query.eq("role_id", -1);
@@ -182,56 +180,14 @@ export async function GET(
     query = roleIds.length ? query.in("role_id", roleIds) : query.eq("role_id", -1);
   }
 
-  if ((entity === "participantes" || entity === "usuarios") && selectedEventId) {
-    const [organizerResult, participantsResult] = await Promise.all([
-      supabaseAdmin.from("evento").select("organizador_id").eq("id", selectedEventId).maybeSingle(),
-      supabaseAdmin.from("registro_asistido").select("usuario_id").eq("evento_id", selectedEventId),
-    ]);
-
-    const relatedUserIds = [
-      organizerResult.data?.organizador_id,
-      ...(participantsResult.data ?? []).map((row) => row.usuario_id),
-    ].filter(Boolean);
-
-    query = relatedUserIds.length ? query.in("id", relatedUserIds) : query.eq("id", "00000000-0000-0000-0000-000000000000");
-  }
-
-  if (entity === "productos" && selectedEventId) {
-    const { data: productLinks, error: productLinksError } = await supabaseAdmin
-      .from("evento_producto")
-      .select("producto_id")
-      .eq("evento_id", Number(selectedEventId));
-
-    if (productLinksError) {
-      return NextResponse.json({ ok: false, error: productLinksError.message }, { status: 500 });
-    }
-
-    const productIds = (productLinks ?? []).map((row) => row.producto_id).filter((value) => Number.isFinite(Number(value)));
-    query = productIds.length ? query.in("id", productIds) : query.eq("id", -1);
-  }
-
-  if (entity === "campanas" && selectedEventId) {
-    const { data: eventData, error: eventError } = await supabaseAdmin
-      .from("evento")
-      .select("campana_id")
-      .eq("id", Number(selectedEventId))
-      .maybeSingle();
-
-    if (eventError) {
-      return NextResponse.json({ ok: false, error: eventError.message }, { status: 500 });
-    }
-
-    const selectedCampaignId = eventData?.campana_id ?? null;
-    query = selectedCampaignId ? query.eq("id", selectedCampaignId) : query.eq("id", -1);
-  }
-
   const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, data: data ?? [] }, { status: 200 });
+  const safeData = (data ?? []).map(row => entity === "usuarios" || entity === "participantes" ? { ...row, rol: roleRows?.find(role => role.id === row.role_id)?.nombre ?? "Sin rol" } : row);
+  return NextResponse.json({ ok: true, data: safeData }, { status: 200 });
 }
 
 export async function POST(

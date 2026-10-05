@@ -46,6 +46,60 @@ El enlace con el proyecto remoto se guarda en `backend/supabase/.temp/`
 (ignorado por git). Si se pierde, vuelve a enlazar con
 `cd backend && supabase link --project-ref <ref>`.
 
+## Demostración de inteligencia de eventos
+
+Abre `/panel` para entrar directamente al nuevo panel. El selector inferior permite
+probar las vistas de dirección, organización y marketing. Es un selector de
+demostración, no un mecanismo de autorización.
+
+Los cinco espacios principales son resumen, eventos, operación, resultados y
+planificación. Dirección también tiene recursos; se conserva Power BI con su
+componente original.
+
+El resumen destaca el avance de la meta y una decisión relevante para cada rol.
+Resultados reúne distribución de público con porcentajes, interés frente a
+compra, evaluación de la experiencia y comparación de costo por comprador frente
+a conversión. Organización puede alternar ingresos por hora y acumulados. Los
+gráficos muestran estados vacíos cuando no hay registros; no inventan puntajes.
+El evento y el origen de datos seleccionados se recuerdan durante la sesión,
+incluso al cambiar de rol o volver desde Power BI.
+
+En **Demostración**, los eventos y sus operaciones se guardan en `localStorage`
+con la clave `cce-intelligence-demo-v1`. Son datos ficticios y no se escriben en
+Supabase. Para probar el recorrido completo:
+
+1. Abre `/registro` e inscribe una persona en Coca-Cola Experience.
+2. Descarga la entrada QR o copia su código.
+3. Abre `/panel`, selecciona el mismo evento y entra a Operación.
+4. Escanea el QR con la cámara, pega el código o usa el ingreso manual.
+5. Selecciona al participante y registra una muestra, actividad, encuesta, beneficio,
+   canje o compra. El inventario y los indicadores se recalculan.
+6. Consulta Resultados y descarga CSV o imprime el informe para guardarlo como PDF.
+7. En Planificar con IA, ajusta inscripciones y presupuesto para comparar cantidades,
+   dotación orientativa y costo esperado por comprador.
+
+La cámara requiere HTTPS o localhost y permiso del navegador. El QR de prueba
+solo funciona con los datos locales de esa demostración. Otros dispositivos no
+comparten automáticamente el almacenamiento del navegador.
+
+La planificación de demostración usa reglas y tasas históricas ponderadas, no
+un modelo entrenado. Sus escenarios no son intervalos estadísticos calibrados;
+las ventas vinculadas tampoco demuestran incremento causal. El presupuesto no
+se convierte automáticamente en más ventas.
+
+En **Base de datos**, los indicadores y el pronóstico consultan las APIs existentes
+de Supabase y del motor ML. Los registros allí también pueden ser datos de seed.
+Eventos y recursos conservan sus formularios conectados. La nueva captura
+operativa funciona por ahora en demostración: no está conectada a escritura en
+Supabase. El seguimiento registra acciones y nunca envía WhatsApp o correo.
+
+Para compilar sin compartir caché con un servidor de desarrollo abierto:
+
+```bash
+cd frontend
+NEXT_DIST_DIR=.next-validation npm run build
+```
+
 Las migraciones ya aplicadas en el remoto no se editan: los cambios de esquema
 van en una migración nueva.
 
